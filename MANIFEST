@@ -1,0 +1,8 @@
+Makefile.PL
+ProcessInfo.pl
+Info/NT.pm
+Info/WMI.pm
+Info.pm
+MANIFEST
+Readme
+t/basic.t
