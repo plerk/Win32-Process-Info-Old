@@ -46,20 +46,35 @@ The following methods should be considered public:
 # 0.011	14-Sep-2002	T. R. Wyant
 #		Incremented version number
 #		Added method "Version".
+#
+# 0.012	06-Nov-2002	T. R. Wyant
+#		Incremented version number
+#		Made attributes beginning with "_" hidden.
+#		Add attribute _mutator, containing a reference to
+#			%mutator.
+#
+#	12-Nov-2002	T. R. Wyant
+#		Build hash argument for subclass instantiators.
+#		Document this, and the use of the various keys.
+#
+#	07-Dec-2002	T. R. Wyant
+#		Check environment variable
+#		PERL_WIN32_PROCESS_INFO_VARIANT for the default
+#		variant(s), if none is specified.
 
 package Win32::Process::Info;
 
-$VERSION = '0.011';
+$VERSION = '0.012';
 
 use strict;
-use vars qw{%static};
+use vars qw{%mutator %static};
 use Carp;
 use Time::Local;
 use UNIVERSAL qw{isa};
 
 %static = (
     elapsed_in_seconds	=> 1,
-    variant		=> undef,
+    variant		=> $ENV{PERL_WIN32_PROCESS_INFO_VARIANT},
     );
 my %make_variant = (
     NT => sub {
@@ -72,7 +87,7 @@ my %make_variant = (
 	},
     );
 
-my %mutator = (
+%mutator = (
     elapsed_in_seconds	=> sub {$_[2]},
     variant		=> sub {
 	croak "Error - Variant can not be set on an instance."
@@ -85,7 +100,7 @@ my %mutator = (
     );
 
 
-=item $pi = Win32::Process::Info->new ([machine], [variant])
+=item $pi = Win32::Process::Info->new ([machine], [variant], [hash])
 
 This method instantiates a process information object, connected
 to the given machine, and using the given variant.
@@ -101,23 +116,60 @@ WMI - Uses the Windows Management Implementation. Good on Win2K, ME,
 and possibly others, depending on their vintage and whether
 WMI has been retrofitted.
 
-The default variant is initially 'WMI,NT' (which means to try WMI
-first, and NT if WMI fails), but this can be changed using
-Win32::Process::Info->Set (variant => whatever).
+The initial default variant comes from environment variable
+PERL_WIN32_PROCESS_INFO_VARIANT. If this is not found, it will be
+'WMI,NT', which means to try WMI first, and NT if WMI fails. This can
+be changed using Win32::Process::Info->Set (variant => whatever).
+
+The hash argument is a hash reference to additional arguments, if
+any. The hash reference can actually appear anywhere in the argument
+list, though positional arguments are illegal after the hash reference.
+
+The following hash keys are supported:
+
+  variant => corresponds to the 'variant' argument (all)
+  host => corresponds to the 'machine' argument (WMI)
+  user => username to perform operation under (WMI)
+  password => password corresponding to the given username (WMI)
+
+ALL hash keys are optional. SOME hash keys are only supported under
+certain variants. These are indicated in parentheses after the
+description of the key. An attempt to specify a key on a variant
+that does not support it is an error.
 
 =cut
 
+my @argnam = qw{host variant};
 sub new {
 my $class = shift;
 $class = ref $class if ref $class;
-my $mach = shift;
-my $try = shift || $static{variant} || 'WMI,NT';
+my %arg;
 my ($self, @probs, $variant);
+
+my $inx = 0;
+foreach my $inp (@_) {
+    if (ref $inp eq 'HASH') {
+	foreach my $key (keys %$inp) {$arg{$key} = $inp->{$key}}
+	}
+      elsif (ref $inp) {
+	croak "Error - Argument may not be ${[ref $inp]} reference.";
+	}
+      elsif ($argnam[$inx]) {
+	$arg{$argnam[$inx]} = $inp;
+	}
+      else {
+	croak "Error - Too many positional arguments.";
+	}
+    $inx++;
+    }
+
+my $mach = $arg{host} or delete $arg{host};
+my $try = $arg{variant} || $static{variant} || 'WMI,NT';
 foreach $variant (grep {$_} split '\W+', $try) {
     eval {
 	croak "Error - Variant '$variant' is unknown."
 	    unless exists $make_variant{$variant};
-	$self = $make_variant{$variant}->($mach);
+	$self = $make_variant{$variant}->(\%arg);
 	};
     if ($self) {
 	$static{variant} ||= $variant;
@@ -166,6 +218,8 @@ my @vals;
 foreach my $name (@_) {
     croak "Error - Attribute '$name' does not exist."
 	unless exists $self->{$name};
+    croak "Error - Attribute '$name' is private."
+	if $name =~ m/^_/;
     push @vals, $self->{$name};
     }
 return wantarray ? @vals : $vals[0];
@@ -206,6 +260,7 @@ my $self = shift;
 croak "Error - Set requires an even number of arguments."
     if @_ % 2;
 $self = \%static unless ref $self;
+my $mutr = $self->{_mutator} || \%mutator;
 my @vals;
 while (@_) {
     my $name = shift;
@@ -213,8 +268,8 @@ while (@_) {
     croak "Error - Attribute '$name' does not exist."
 	unless exists $self->{$name};
     croak "Error - Attribute '$name' is read-only."
-	unless exists $mutator{$name};
-    $self->{$name} = $mutator{$name}->($self, $name, $val);
+	unless exists $mutr->{$name};
+    $self->{$name} = $mutr->{$name}->($self, $name, $val);
     push @vals, $self->{$name};
     }
 return wantarray ? @vals : $vals[0];
@@ -352,6 +407,7 @@ This library uses the following libraries:
  Carp
  Time::Local
  Win32::API (if using the NT-native variant)
+ Win32API::Registry (if using the NT-native variant)
  Win32::ODBC (if using the WMI variant)
 
 As of ActivePerl 630, none of this uses any packages that are not
@@ -364,6 +420,13 @@ included with ActivePerl. Your mileage may vary.
        Fixed warning in NT.pm when -w in effect. Fix provided by Judy
            Hawkins (of Pitney Bowes, according to her mailing address),
            and accepted with thanks.
+ 0.012 Use environment variable PERL_WIN32_PROCESS_INFO_VARIANT to
+           specify the default variant list.
+       Add a hash reference argument to new (); use this to specify
+           username and password to the WMI variant.
+       Turn on debug privilege in NT variant. This also resulted in
+           dependency on Win32API::Registry.
+       Return OwnerSid and Owner in NT variant.
 
 =head1 ACKNOWLEDGMENTS
 
@@ -383,8 +446,11 @@ Dan Sugalski F<sugalskd@osshe.edu>, author of VMS::Process, where
 I got (for good or ill) the idea of just grabbing all the data
 I could find on a process and smashing it into a big hash.
 
-The folks of Cygwin (F<http://www.cygwin.com/>), especially the author
-of ps.cc, who is known to me only by the initials "cgf".
+The folks of Cygwin (F<http://www.cygwin.com/>), especially Christopher
+G. Faylor, author of ps.cc.
+
+Judy Hawkins of Pitney Bowes, for providing testing and patches for
+NT 4.0 without WMI.
 
 =head1 AUTHOR
 

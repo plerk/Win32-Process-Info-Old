@@ -7,6 +7,7 @@ WriteMakefile (
 	PREREQ_PM => {'Win32' => 0.18,
 			'Win32::API' => 0.01,
 			'Win32::OLE' => 0.1502,
+			'Win32API::Registry' => 0.22,
 			},
 #	'linkext' => {LINKTYPE => ''},
 	'dist' => {COMPRESS => 'gzip', SUFFIX => 'gz'},

@@ -57,19 +57,55 @@ The following methods should be considered public:
 #		Set the Warn level to 0 around the instantiation of
 #			the WMI object, to supress yet another annoying
 #			message when WMI not present.
+#
+# 0.012	06-Nov-2002	T. R. Wyant
+#		Increment version number.
+#		Add attributes 'user' and 'password'.
+#		Connect using SWbemLocator.ConnectServer rather than
+#			new-ing the monicker, so we can specify user
+#			and password if we want.
+#
+#	12-Nov-2002	T. R. Wyant
+#		Change 'new' argument to a hash (it _was_ clearly
+#			marked as not being public!)
+#		Reject hashes with keys other than host, variant,
+#			user, and password.
+#
+#	03-Dec-2002	T. R. Wyant
+#		Add ad-hoc check in 'new' to see if we can retrieve
+#			our own proces object. If we can't, we presume
+#			that we can't get at any of the process objects
+#			either, so we croak.
+#		Tried going back to using monicker to instantiate WMI
+#			class if we don't need to specify username and
+#			password. This didn't behave well on the only
+#			NT 4.0 system I have access to. In fact, it
+#			hangs trying to call GetOwnerSid on the time
+#			synchronization service. Using ConnectServer
+#			finds no objects at all - but at least this is
+#			something deterministic that I can check for
+#			and fail over to the NT-native interface.
+#
+#	07-Dec-2002	T. R. Wyant
+#		Got rid of ad-hoc retrieval check in 'new.' It wasn't
+#			doing what I wanted anyway (which was to cope
+#			with a flakey NT 4.0 WMI installation).
 
 package Win32::Process::Info::WMI;
 
 @ISA = qw{Win32::Process::Info};
-$VERSION = '0.011';
+$VERSION = '0.012';
 
 use strict;
+use vars qw{%mutator};
 use Carp;
-###use Math::BigInt;
 use Time::Local;
 use Win32::OLE qw{in with};
+use Win32::OLE::Const;
 use Win32::OLE::Variant;
-###use Win32::OLE::Const 'WMI';
+
+
+%mutator = %Win32::Procecss::Info::mutator;
 
 
 #	note that "new" is >>>NOT<<< considered a public
@@ -77,29 +113,91 @@ use Win32::OLE::Variant;
 
 my $wmi_const;
 
+my %lglarg = map {($_, 1)} qw{host variant user password};
+
 sub new {
 my $class = shift;
 $class = ref $class if ref $class;
-my $mach = shift;
-$mach =~ s|[\\/]||g if $mach;
-$mach = '.' unless $mach;
-my $olecls = "winmgmts:{impersonationLevel=impersonate,(Debug)}!//$mach/root/cimv2";
+
+my $arg = shift;
+my @ilg = grep {!$lglarg{$_}} keys %$arg;
+@ilg and
+    croak "Error - Win32::Process::Info::WMI argument(s) (@ilg) illegal";
+
+my $mach = $arg->{host} || '';
+$mach =~ s|^[\\/]+||;
+my $user = $arg->{user} || '';
+my $pass = $arg->{password} || '';
+
 my $old_warn = Win32::OLE->Option ('Warn');
 Win32::OLE->Option (Warn => 0);
-my $wmi = Win32::OLE->GetObject ($olecls);
-Win32::OLE->Option (Warn => $old_warn);
-$wmi or croak "Error - Win32::Process::Info::WMI failed to get winmgs object from OLE: ",
-	Win32::OLE->LastError;
 
-##require Win32::OLE::Const 'WMI';
-require Win32::OLE::Const;
-$wmi_const ||= Win32::OLE::Const->Load ($wmi);
+
+#	Under at least some circumstances, I have found that I have
+#	access when using the monicker, and not if using the locator;
+#	especially under NT 4.0 with the retrofitted WMI. So use the
+#	monicker unless I have a username/password.
+
+my $wmi;
+
+if ($user) {
+    my $locator = Win32::OLE->new ('WbemScripting.SWbemLocator') or do {
+	Win32::OLE->Option (Warn => $old_warn);
+	croak "Error - Win32::Process::Info::WMI failed to get SWBemLocator object:\n",
+	    Win32::OLE->LastError;
+	};
+
+    $wmi_const ||= Win32::OLE::Const->Load ($locator) or do {
+	Win32::OLE->Option (Warn => $old_warn);
+	croak "Error - Win32::Process::Info::WMI failed to load WMI type library:\n",
+	    Win32::OLE->LastError;
+	};
+
 
 # Note that MSDN says that the following doesn't work under NT 4.0.
 ##$wmi->Security_->Privileges->AddAsString ('SeDebugPrivilege', 1);
 
+    $locator->{Security_}{ImpersonationLevel} =
+	$wmi_const->{wbemImpersonationLevelImpersonate};
+    $locator->{Security_}{Privileges}->Add ($wmi_const->{wbemPrivilegeDebug});
+
+    $wmi = $locator->ConnectServer (
+	$mach,				# Server
+	'root/cimv2',			# Namespace
+	$user,				# User (with optional domain)
+	$pass,				# Password
+	'',				# Locale
+	'',				# Authority
+##	wbemConnectFlagUseMaxWait,	# Flag
+	);
+    }
+  else {
+    my $mm = $mach || '.';
+    $wmi = Win32::OLE->GetObject (
+	"winmgmts:{impersonationLevel=impersonate,(Debug)}!//$mm/root/cimv2");
+    }
+
+$wmi or do {
+    Win32::OLE->Option (Warn => $old_warn);
+    croak "Error - Win32::Process::Info::WMI failed to get winmgs object:\n",
+	Win32::OLE->LastError;
+    };
+
+$wmi_const ||= Win32::OLE::Const->Load ($wmi) or do {
+    Win32::OLE->Option (Warn => $old_warn);
+    croak "Error - Win32::Process::Info::WMI failed to load WMI type library:\n",
+	Win32::OLE->LastError;
+    };
+
+
+#	Whew! we're through with that! Manufacture and return the
+#	desired object.
+
+Win32::OLE->Option (Warn => $old_warn);
 my $self = {%Win32::Process::Info::static};
 $self->{machine} = $mach;
+$self->{password} = $pass;
+$self->{user} = $pass;
 $self->{wmi} = $wmi;
 $self->{_attr} = undef;	# Cache for keys.
 bless $self, $class;
@@ -174,6 +272,7 @@ if (@procs && !$self->{_attr}) {
 	KernelModeTime	=> \&Win32::Process::Info::_clunks_to_desired,
 	UserModeTime	=> \&Win32::Process::Info::_clunks_to_desired,
 	};
+
     foreach my $attr (in $procs[0]->{Properties_}) {
 	my $name = $attr->{Name};
 	my $type = $attr->{CIMType};
@@ -215,16 +314,16 @@ foreach my $proc (_get_proc_objects ($self, @_)) {
 #	But it still looks like ad-hocery to me.
 
     eval {
-	if ($proc->{ExecutablePath} and !$proc->GetOwnerSid ($sid) and
-		$oid = $sid->Get ()) {
-	    $phash->{OwnerSid} = $oid;
-	    unless ($username{$oid}) {
-		$username{$oid} =
-		    $proc->GetOwner ($user, $domain) ? $oid :
-		    "@{[$domain->Get ()]}\\@{[$user->Get ()]}";
-		}
-	    $phash->{Owner} = $username{$oid};
+	return unless $proc->{ExecutablePath};
+	return if $proc->GetOwnerSid ($sid);
+	$oid = $sid->Get ();
+	$phash->{OwnerSid} = $oid;
+	unless ($username{$oid}) {
+	    $username{$oid} =
+	    $proc->GetOwner ($user, $domain) ? $oid :
+		"@{[$domain->Get ()]}\\@{[$user->Get ()]}";
 	    }
+	$phash->{Owner} = $username{$oid};
 	};
     }
 Win32::OLE->Option (Warn => $old_warn);
