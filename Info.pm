@@ -42,10 +42,14 @@ The following methods should be considered public:
 # 0.010	02-Sep-2002	T. R. Wyant
 #		Renamed from Win32::ProcInfo
 #		Initial release under name Win32::Process::Info
+#
+# 0.011	14-Sep-2002	T. R. Wyant
+#		Incremented version number
+#		Added method "Version".
 
 package Win32::Process::Info;
 
-$VERSION = '0.010';
+$VERSION = '0.011';
 
 use strict;
 use vars qw{%static};
@@ -264,6 +268,18 @@ sub GetProcInfo {
 croak "Error - Whoever coded this forgot to override GetProcInfo.";
 }
 
+=item print "$pi Version = @{[$pi->Version ()]}\n"
+
+This method just returns the version number of the
+Win32::Process::Info object.
+
+=cut
+
+sub Version {
+return $Win32::Process::Info::VERSION;
+}
+
+
 #
 #	$self->_build_hash ([hashref], key, value ...)
 #	builds a process info hash out of the given keys and values.
@@ -294,7 +310,7 @@ return $hash;
 
 sub _clunks_to_desired {
 my $self = shift;
-@_ = map {$_ / 10_000_000} @_ if $self->{elapsed_in_seconds};
+@_ = map {defined $_ ? $_ / 10_000_000 : undef} @_ if $self->{elapsed_in_seconds};
 return wantarray ? @_ : $_[0];
 }
 
@@ -344,6 +360,10 @@ included with ActivePerl. Your mileage may vary.
 =head1 HISTORY
 
  0.010 Released as Win32::Process::Info
+ 0.011 Added Version method
+       Fixed warning in NT.pm when -w in effect. Fix provided by Judy
+           Hawkins (of Pitney Bowes, according to her mailing address),
+           and accepted with thanks.
 
 =head1 ACKNOWLEDGMENTS
 
@@ -351,7 +371,7 @@ This module would not exist without the following people:
 
 Aldo Calpini, who gave us Win32::API.
 
-Jan Krynicky, whose "How2 create a PPM distribution"
+Jenda Krynicky, whose "How2 create a PPM distribution"
 (F<http://jenda.krynicky.cz/perl/PPM.html>) gave me a leg up on
 both PPM and tar distributions.
 

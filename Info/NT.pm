@@ -69,11 +69,19 @@ return undef;
 
 # 0.010	02-Sep-2002	T. R. Wyant
 #		Initial release under this name.
+#
+# 0.011	14-Sep-2002	T. R. Wyant
+#		Increment version.
+#
+#	30-Oct-2002	T. R. Wyant
+#		Fix warning when -w in effect. Fix provided by Judy
+#		Hawkins (of Pitney Bowes, according to her mailing
+#		address), and accepted with thanks.
 
 package Win32::Process::Info::NT;
 
 @ISA = qw{Win32::Process::Info};
-$VERSION = '0.010';
+$VERSION = '0.011';
 
 use strict;
 use vars qw {
@@ -246,7 +254,7 @@ my $dat;
 
 foreach my $pid (map {$_ eq '.' ? $$ : $_} @_) {
 
-    $^E = undef;
+    $^E = 0;
     $dat = $self->_build_hash (undef, ProcessId => $pid);
 
     my $prchdl = $OpenProcess->Call ($dac, 0, $pid) or next;
@@ -416,7 +424,7 @@ Aldo Calpini, who gave us Win32::API.
 The folks of Cygwin (F<http://www.cygwin.com/>), especially the author
 of ps.cc, who is known to me only by the initials "cgf".
 
-Jan Krynicky, whose "How2 create a PPM distribution"
+Jenda Krynicky, whose "How2 create a PPM distribution"
 (F<http://jenda.krynicky.cz/perl/PPM.html>) gave me a leg up on
 both PPM and tar distributions.
 

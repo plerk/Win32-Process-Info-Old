@@ -1,10 +1,10 @@
+#!/usr/bin/perl -w
+
 use strict;
 use Getopt::Std;
 use Win32::Process::Info;
 
 $| = 1;
-
-## my $VERSION = '0.010';
 
 my %opt;
 
@@ -42,11 +42,11 @@ if ($opt{b}) {
 	next if $opt{n} && lc $proc->{Name} ne $opt{n};
 	if ($opt{p}) {
 	    printf "%-20s %4d  %s\n",
-		$proc->{Name}, $proc->{ProcessId}, $proc->{Owner};
+		$proc->{Name} || '', $proc->{ProcessId}, $proc->{Owner} || '';
 	    }
 	  else {
 	    print "\n$proc->{ProcessId}\n",
-		map {"    $_ => $proc->{$_}\n"} sort keys %$proc;
+		map {"    $_ => @{[defined $proc->{$_} ? $proc->{$_} : '']}\n"} sort keys %$proc;
 	    }
 	}
     }

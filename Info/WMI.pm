@@ -34,23 +34,48 @@ The following methods should be considered public:
 
 # 0.010	02-Sep-2002	T. R. Wyant
 #		Initial release under this name.
+#
+# 0.011	14-Sep-2002	T. R. Wyant
+#		Increment version.
+#
+#	26-Sep-2002	T. R. Wyant
+#		Pull variant construction out of loop; we only need
+#			three of them, anyway.
+#
+#	30-Oct-2002	T. R. Wyant
+#		Set the Warn level to 0 inside GetProcInfo, to try
+#			to supress OLE's annoying exceptions when
+#			getting the SID of a process with no owner
+#			(e.g. 'idle', 'system').
+#
+#	31-Oct-2002	T. R. Wyant
+#		Reinstate check for executable path before getting
+#			user SID and name, as way to bypass system
+#			and idle pseudo-processes.
+#
+#	01-Nov-2002	T. R. Wyant
+#		Set the Warn level to 0 around the instantiation of
+#			the WMI object, to supress yet another annoying
+#			message when WMI not present.
 
 package Win32::Process::Info::WMI;
 
 @ISA = qw{Win32::Process::Info};
-$VERSION = '0.010';
+$VERSION = '0.011';
 
 use strict;
 use Carp;
-use Math::BigInt;
+###use Math::BigInt;
 use Time::Local;
 use Win32::OLE qw{in with};
 use Win32::OLE::Variant;
-use Win32::OLE::Const 'WMI';
+###use Win32::OLE::Const 'WMI';
 
 
 #	note that "new" is >>>NOT<<< considered a public
 #	method.
+
+my $wmi_const;
 
 sub new {
 my $class = shift;
@@ -59,9 +84,16 @@ my $mach = shift;
 $mach =~ s|[\\/]||g if $mach;
 $mach = '.' unless $mach;
 my $olecls = "winmgmts:{impersonationLevel=impersonate,(Debug)}!//$mach/root/cimv2";
-my $wmi = Win32::OLE->GetObject ($olecls) or
-    croak "Error - Win32::Process::Info::WMI failed to get winmgs object from OLE: ",
+my $old_warn = Win32::OLE->Option ('Warn');
+Win32::OLE->Option (Warn => 0);
+my $wmi = Win32::OLE->GetObject ($olecls);
+Win32::OLE->Option (Warn => $old_warn);
+$wmi or croak "Error - Win32::Process::Info::WMI failed to get winmgs object from OLE: ",
 	Win32::OLE->LastError;
+
+##require Win32::OLE::Const 'WMI';
+require Win32::OLE::Const;
+$wmi_const ||= Win32::OLE::Const->Load ($wmi);
 
 # Note that MSDN says that the following doesn't work under NT 4.0.
 ##$wmi->Security_->Privileges->AddAsString ('SeDebugPrivilege', 1);
@@ -147,7 +179,7 @@ if (@procs && !$self->{_attr}) {
 	my $type = $attr->{CIMType};
 	push @$atls, $name;
 	$self->{_xfrm}{$name} = \&Win32::Process::Info::_date_to_time_t
-	    if $type == wbemCimtypeDatetime;
+	    if $type == $wmi_const->{wbemCimtypeDatetime};
 	}
     }
 $self->{_attr} = {map {($_->{Name}, $_->{CIMType})}
@@ -161,29 +193,41 @@ sub GetProcInfo {
 my $self = shift;
 my @pinf;
 my %username;
+my $sid = Variant (VT_BYREF | VT_BSTR, '');
+my $user = Variant (VT_BYREF | VT_BSTR, '');
+my $domain = Variant (VT_BYREF | VT_BSTR, '');
+my $old_warn = Win32::OLE->Option ('Warn');
+Win32::OLE->Option (Warn => 0);
 foreach my $proc (_get_proc_objects ($self, @_)) {
     my $phash = $self->_build_hash (
 	undef, map {($_, $proc->{$_})} @{$self->{_attr}});
     push @pinf, $phash;
-    my $sid = Variant( VT_BYREF | VT_BSTR, '');
     my $oid;
-#	Note: Sad experience shows that if the OwnerSid is
-#	undefined, GetOwner behaves badly, up to and including
-#	trapping out the Perl executable. Caveat maintainor.
+
+#	The test for executable path is extremely ad-hoc, but the best
+#	way I have come up with so far to strain out the System and
+#	Idle processes. The methods can misbehave badly on these, and
+#	I have found no other way of identifying them. Idle is always
+#	process 0, but it seems to me that I have seen once a system
+#	whose System process ID was not 8. This test was actually
+#	removed at one point, but is reinstated since finding a set of
+#	slides on the NT startup which bolsters my confidence in it.
+#	But it still looks like ad-hocery to me.
+
     eval {
-	if (!$proc->GetOwnerSid ($sid) and $oid = $sid->Get ()) {
+	if ($proc->{ExecutablePath} and !$proc->GetOwnerSid ($sid) and
+		$oid = $sid->Get ()) {
 	    $phash->{OwnerSid} = $oid;
 	    unless ($username{$oid}) {
-		my $user = Variant( VT_BYREF | VT_BSTR, '');
-		my $domain = Variant( VT_BYREF | VT_BSTR, '');
 		$username{$oid} =
 		    $proc->GetOwner ($user, $domain) ? $oid :
 		    "@{[$domain->Get ()]}\\@{[$user->Get ()]}";
 		}
 	    $phash->{Owner} = $username{$oid};
 	    }
-	}
+	};
     }
+Win32::OLE->Option (Warn => $old_warn);
 return wantarray ? @pinf : \@pinf;
 }
 
@@ -264,7 +308,6 @@ flavor of Windows.
 This library uses the following libraries:
 
   Carp
-  Math::BigInt
   Time::Local
   Win32::OLE
 
@@ -275,7 +318,7 @@ that are not included with ActivePerl. Your milage may vary.
 
 This module would not exist without the following people:
 
-Jan Krynicky, whose "How2 create a PPM distribution"
+Jenda Krynicky, whose "How2 create a PPM distribution"
 (F<http://jenda.krynicky.cz/perl/PPM.html>) gave me a leg up on
 both PPM and tar distributions.
 
