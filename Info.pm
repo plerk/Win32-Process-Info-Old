@@ -130,10 +130,19 @@ The following methods should be considered public:
 # 1.002	07-Jun-2004	T. R. Wyant
 #		Document leaks under WMI, and how to minimize. Document
 #		related modules.
+#
+# 1.003 19-Dec-2004	T. R. Wyant
+#		Remove the "_PRIV" from the end of environment variable
+#		name PERL_WIN32_PROCESS_INFO_WMI_DEBUG in the POD.
+#		Record the variant name in the object.
+#		Clarify (hopefully) the PERL_WIN32_PROCESS_INFO_VARIANT
+#		documentation.
+#		Document current whereabouts of Win32::IProc - or at
+#		least the sad remnants of it.
 
 package Win32::Process::Info;
 
-$VERSION = 1.002;
+$VERSION = 1.003;
 
 use strict;
 use vars qw{%mutator %static};
@@ -299,6 +308,7 @@ foreach $variant (grep {$_} split '\W+', $try) {
 	};
     if ($self) {
 	$static{variant} ||= $variant;
+	$self->{variant} = $variant;
 	return $self;
 	}
     push @probs, $@;
@@ -326,12 +336,7 @@ TRUE.
 B<variant> is the variant of the Process::Info code in use,
 and should be zero or more of 'WMI' or 'NT', separated by
 commas. 'WMI' selects the Windows Management Implementation, and
-'NT' selects the Windows NT native interface. B<variant> can
-only be set on the class, not the instance. If you set
-B<variant> to an empty string (the default), the next "new"
-will iterate over all possibilities (or the contents of
-environment variable PERL_WIN32_PROCESS_INFO_VARIANT if present),
-and set B<variant> to the first one that actually works.
+'NT' selects the Windows NT native interface.
 
 B<machine> is the name of the machine connected to. This is
 not available as a class attribute.
@@ -367,7 +372,12 @@ However:
 
 B<variant> is read-only at the instance level. That is,
 Win32::Process::Info->Set (variant => 'NT') is OK, but
-$pi->Set (variant => 'NT') will raise an exception.
+$pi->Set (variant => 'NT') will raise an exception. If
+you set B<variant> to an empty string (the default), the
+next "new" will iterate over all possibilities (or the
+contents of environment variable
+PERL_WIN32_PROCESS_INFO_VARIANT if present), and set
+B<variant> to the first one that actually works.
 
 B<machine> is not available as a class attribute, and is
 read-only as an instance attribute. It is B<not> useful for
@@ -580,27 +590,33 @@ __END__
 
 =head1 ENVIRONMENT
 
-This package is sensitive to a number of environment variables:
+This package is sensitive to a number of environment variables.
+Note that these are normally consulted only when the package
+is initialized (i.e. when it's "used" or "required").
 
 PERL_WIN32_PROCESS_INFO_VARIANT
 
-If present, specifies which variant(s) are tried, in which order. The
-default behaviour is equivalent to specifying 'WMI,NT'.
+If present, specifies which variant(s) are tried, in which
+order. The default behaviour is equivalent to specifying
+'WMI,NT'. This environment variable is consulted when you
+"use Win32::Process::Info;". If you want to change it in
+your Perl code you should use the static Set () method.
 
-PERL_WIN32_PROCESS_INFO_WMI_DEBUG_PRIV
+PERL_WIN32_PROCESS_INFO_WMI_DEBUG
 
-If present and containing a value Perl recognizes as true, causes the
-WMI variant to assert the "Debug" privilege. This has the advantage of
-returning more full paths, but the disadvantage of tending to cause
-Perl to die when trying to get the owner information on the
-newly-accessable processes.
+If present and containing a value Perl recognizes as true,
+causes the WMI variant to assert the "Debug" privilege.
+This has the advantage of returning more full paths, but
+the disadvantage of tending to cause Perl to die when
+trying to get the owner information on the newly-accessable
+processes.
 
 PERL_WIN32_PROCESS_INFO_WMI_PARIAH
 
 If present, should contain a semicolon-delimited list of process names
 for which the package should not attempt to get owner information. '*'
 is a special case meaning 'all'. You will probably need to use this if
-you assert PERL_WIN32_PROCESS_INFO_WMI_DEBUG_PRIV.
+you assert PERL_WIN32_PROCESS_INFO_WMI_DEBUG.
 
 =head1 REQUIREMENTS
 
@@ -653,6 +669,14 @@ included with ActivePerl. Your mileage may vary.
        to figure out what's going on - or at least read the Readme.
  1.002 Document leaky behaviour of WMI variant, and try to make it
        leak less. Document related modules.
+ 1.003 Documented PERL_WIN32_PROCESS_INFO_WMI_DEBUG correctly
+       (the docs had a _PRIV on the end).
+       Recorded the variant name in the object.
+       Clarified (hopefully) the docs on how to use the
+       PERL_WIN32_PROCESS_INFO_VARIANT environment variable.
+       Added the current status and whereabouts of
+       Win32::IProc. Thanks to Eric Bluestein
+       (http://www.emblue.com/) for pointing this out.
 
 =head1 BUGS
 
@@ -685,8 +709,12 @@ and should come with ActivePerl.
 
 =item Win32::IProc by Amine Moulay Ramdane
 
-This module is no longer supported, and the source has been lost. Which
-is a shame, because it returns per-thread information as well.
+This module is no longer supported, which is a shame because it returns
+per-thread information as well. As of December 27, 2004, Jenda Krynicky
+(F<http://jenda.krynicky.cz/>) was hosting a PPM kit in PPM repository
+F<http://jenda.krynicky.cz/perl/>, which may be usable. But the source
+for the DLL files is missing, so if some Windows upgrade breaks it
+you're out of luck.
 
 =item Win32API::ProcessStatus, by Ferdinand Prantl
 

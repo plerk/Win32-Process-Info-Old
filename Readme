@@ -1,4 +1,4 @@
-Win32::Process::Info version 1.002
+Win32::Process::Info version 1.003
 
 This module is intended to partly plug a perceived gap in Perl's Win32
 functionality: the inability to traverse all (or nearly all) the processes
@@ -82,8 +82,9 @@ Expand the kit using unzip (or equivalent). Then
 
 If all else fails:
 
-Get the .pm files from your kit by whatever means you can, and drop
-them in /site/lib/Win32/Process (or wherever ...).
+Get the Info.pm file and the Info folder from your kit by whatever
+means you can, and drop them in /site/lib/Win32/Process (or
+wherever ...).
 
 
 COPYRIGHT NOTICE
