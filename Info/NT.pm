@@ -135,12 +135,19 @@ return undef;
 #			is the docs, it's time to call it production
 #			code. And if _that_ statement doesn't flush
 #			out more problems, nothing will.
+#
+# 1.005 15-Mar-2005	T. R. Wyant
+#		Move assertion of seDebugPriv to the point where we
+#		discover we can require Win32API::Registry, since we
+#		don't need to do it but once for the process (not once
+#		per instantiation of the object), and we don't leak
+#		token handles this way.
 
 package Win32::Process::Info::NT;
 
 use base qw{Win32::Process::Info};
 use vars qw{$VERSION};
-$VERSION = 1.000;
+$VERSION = 1.005;
 
 use vars qw {
     $AdjustTokenPrivileges
@@ -166,7 +173,6 @@ use vars qw {
     };
 use Carp;
 use File::Basename;
-use Time::Local;
 use Win32;
 use Win32::API;
 
@@ -221,7 +227,8 @@ $self->{_xfrm} = \%_transform;
 bless $self, $class;
 # We want to fail silently, since that's probably better than nothing.
 ##0.013	AllowPriv (SE_DEBUG_NAME, 1)
-$setpriv->();	##0.013
+$setpriv->() if $setpriv;	##0.013 ##1.005
+$setpriv = undef;		##1.005
 ##    or croak "Error - Failed to (try to) assert privilege @{[
 ##	SE_DEBUG_NAME]}; $^E"
     ;
@@ -752,7 +759,7 @@ NT 4.0 without WMI.
 
 =head1 AUTHOR
 
-Thomas R. Wyant, III (F<Thomas.R.Wyant-III@usa.dupont.com>)
+Thomas R. Wyant, III (F<wyant at cpan dot org>)
 
 =head1 COPYRIGHT
 

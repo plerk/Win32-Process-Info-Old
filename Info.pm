@@ -146,10 +146,16 @@ The following methods should be considered public:
 #		a bug report when I do this. The only hard-and-fast
 #		dependency is on Win32, but ActiveState's PPM3
 #		chokes on this.
+#
+# 1.005 15-Mar-2005	T. R. Wyant
+#		Moved assertion of seDebugPriv in the NT variant to
+#		stop token handle leak.
+#		Turned off $^W for timelocal call, since it throws
+#		random warnings otherwise.
 
 package Win32::Process::Info;
 
-$VERSION = 1.004;
+$VERSION = 1.005;
 
 use strict;
 use vars qw{%mutator %static};
@@ -572,9 +578,14 @@ return wantarray ? @_ : $_[0];
 #	Perl internal time, returning the results. The "self"
 #	argument is unused.
 
+
 sub _date_to_time_t {
 my $self = shift;
 my @result;
+local $^W;	# Prevent Time::Local 1.1 from complaining. This appears
+$^W = 0;	# to be fixed in 1.11, but since Time::Local is part of
+		# the ActivePerl core, there's no PPM installer for it.
+		# At least, not that I can find.
 foreach (@_) {
     if ($_) {
 	my ($yr, $mo, $da, $hr, $mi, $sc) = m/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/;
@@ -688,6 +699,7 @@ included with ActivePerl. Your mileage may vary.
        since CPAN's now checking. The only one that really
        counts is Win32, but ActiveState's PPM3 chokes on
        this, or at least did as of January 2001.
+ 1.005 Addressed token handle leak in the NT variant.
 
 =head1 BUGS
 
@@ -765,11 +777,11 @@ NT 4.0 without WMI.
 
 =head1 AUTHOR
 
-Thomas R. Wyant, III (F<Thomas.R.Wyant-III@usa.dupont.com>)
+Thomas R. Wyant, III (F<wyant at cpan dot org>)
 
 =head1 COPYRIGHT
 
-Copyright 2001, 2002, 2003, 2004 by
+Copyright 2001, 2002, 2003, 2004, 2005 by
 E. I. DuPont de Nemours and Company, Inc.
 All rights reserved.
 

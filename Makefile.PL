@@ -11,7 +11,7 @@ WriteMakefile (
 #	'linkext' => {LINKTYPE => ''},
 	'dist' => {COMPRESS => 'gzip', SUFFIX => 'gz'},
 	$] >= 5.005 ? (
-		AUTHOR => 'Tom Wyant (Thomas.R.Wyant-III@usa.dupont.com)',
+		AUTHOR => 'Tom Wyant (wyant at cpan dot org)',
 		ABSTRACT => 'Get information on arbitrary processes in Windows NT',
 		BINARY_LOCATION => "$Config{archname}$vers/Win32-Process-Info.tar.gz",
 		) : (),

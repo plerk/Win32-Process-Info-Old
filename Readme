@@ -1,4 +1,4 @@
-Win32::Process::Info version 1.003
+Win32::Process::Info version 1.005
 
 This module is intended to partly plug a perceived gap in Perl's Win32
 functionality: the inability to traverse all (or nearly all) the processes
@@ -90,7 +90,7 @@ wherever ...).
 COPYRIGHT NOTICE
 --------- ------
 
-Copyright 2001, 2002, 2003, 2004 by E. I. DuPont de Nemours and
+Copyright 2001, 2002, 2003, 2004, 2005 by E. I. DuPont de Nemours and
 Company, Inc. All rights reserved.
 
 This module is free software; you can use it, redistribute it

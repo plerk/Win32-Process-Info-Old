@@ -522,7 +522,7 @@ published by Macmillan Technical Publishing, ISBN 1-57870-215-1
 
 =head1 AUTHOR
 
-Thomas R. Wyant, III (F<Thomas.R.Wyant-III@usa.dupont.com>)
+Thomas R. Wyant, III (F<wyant at cpan dot org>)
 
 =head1 COPYRIGHT
 
