@@ -1,4 +1,4 @@
-Win32::Process::Info version 1.000
+Win32::Process::Info version 1.001
 
 This module is intended to partly plug a perceived gap in Perl's Win32
 functionality: the inability to traverse all (or nearly all) the processes
@@ -64,7 +64,10 @@ standard commands:
  nmake test
  nmake install
 
-Note that the "test" step is optional, but recommended.
+Note that the "test" step is optional, but recommended. Also note that
+although Win32 is required, it's _not_ in the dependencies, because
+PPM3 doesn't seem to deal with it very well, and I suspect that most
+users of this module have it installed already.
 
 See ftp://ftp.microsoft.com/Softlib/MSLFILES/nmake15.exe for a copy of
 nmake if you need it.

@@ -110,10 +110,15 @@ The following methods should be considered public:
 #			is the docs, it's time to call it production
 #			code. And if _that_ statement doesn't flush
 #			out more problems, nothing will.
+# 1.001	05-Jan-2004	T. R. Wyant
+#		No changes to the code itself. But removed the
+#			dependency on Win32 in Makefile.PL because
+#			PPM3 chokes on it, and I figure anyone who isn't
+#			using PPM is smart enough to read the Readme.
 
 package Win32::Process::Info;
 
-$VERSION = 1.000;
+$VERSION = 1.001;
 
 use strict;
 use vars qw{%mutator %static};
@@ -627,6 +632,10 @@ included with ActivePerl. Your mileage may vary.
        Fix documentation, both pod errors and actual doc bugs.
        When the only thing you've done in two months is add a semicolon
            to a comment, it's probably time to call it production code.
+ 1.001 Removed dependency on Win32. We still need it, of course, but
+       PPM3 chokes on it, and I figure anyone who B<is> using PPM3
+       already has it, and anyone who B<isn't> is smart enough to figure
+       out what's going on - or at least read the Readme.
 
 =head1 RESTRICTIONS
 
