@@ -8,7 +8,7 @@ $| = 1;
 
 my %opt;
 
-getopts ('bcem:n:pr:su:v:x:', \%opt) or die <<"usage end";
+getopts ('bcdem:n:pr:su:v:x:', \%opt) or die <<"usage end";
 
 Testbed and demonstrator for Win32::Process::Info V $Win32::Process::Info::VERSION
 
@@ -16,6 +16,7 @@ usage: perl ProcInfo.pl [options] [pid ...]
 where the allowed options are:
   -b = brief (PIDs only - uses ListPids, not GetProcInfo)
   -c = elapsed times in clunks (100-nanosecond intervals)
+  -d = formatted dates where applicable
   -e = require an <Enter> to exit
   -mx = report on machine x (valid only with variant WMI)
   -nx = report on process name x (case-insensitive)
@@ -65,6 +66,11 @@ for (my $iter8 = 0; $iter8 < $opt{r}; $iter8++) {
 		    $proc->{$key} || '';
 		}
 	      else {
+		if ($opt{d}) {
+		    foreach my $key (qw{CreationDate InstallDate TerminationDate}) {
+			$proc->{$key} = localtime ($proc->{$key}) if $proc->{$key};
+			}
+		    }
 		print "\n$proc->{ProcessId}\n",
 		    map {"    $_ => @{[defined $proc->{$_} ?
 			$proc->{$_} : '']}\n"} sort keys %$proc;

@@ -1,12 +1,16 @@
-Win32::Process::Info version 0.011
+Win32::Process::Info version 0.013
 
 This module is intended to partly plug a perceived gap in Perl's Win32
 functionality: the inability to traverse all (or nearly all) the processes
-on the system, and get information on them. It is a partial plug because
-only Windows NT (including Windows 2000) is supported. Windows "non-NT"
-has a completely different mechanism for traversing the processes in the
-system, I'm not in a position to tackle this, and half a loaf is certainly
-no worse than none.
+on the system, and get information on them. In a futile effort to be all
+things to all people, it has a couple variants, which are (semi-) trans-
+parantly selected among on the fly, depending on the environment in which
+it finds itself:
+* WMI - used if WMI is found on the machine;
+* NT - used if WMI is not found, but Win32::IsWinNT () is TRUE.
+If neither of these obtains (e.g. you're running Windows 95), I'm
+afraid you're out of luck. You actually have control of which variant is
+used, should you choose to exercise it. See the docs for more detail.
 
 Because of Windows NT's security, it may not in fact be possible to see
 literally every process; and some (e.g. process ID 0, the idle process)
@@ -29,12 +33,22 @@ foreach $proc ($pi->GetProcInfo ()) {
 That is to say, GetProcInfo returns a list of anonymous hashes
 containing whatever information can be gleaned. The kit includes
 a slightly more extensive script, ProcessInfo.pl, which produces
-slightly friendlier output.
+very slightly friendlier output.
 
-Win32::Process::Info uses two other libraries which are not part of the
-standard Perl distribution (or weren't last time I looked!): Win32 (
-which IS part of the ActivePerl distribution) and Win32::API (which is
-as of about build 630).
+Win32::Process::Info uses other libraries which are not part of the
+standard Perl distribution (or weren't last time I looked!) Some are
+only used under certain conditions, but you may see degraded
+performance if you don't have them. The libraries used are
+* Win32 - Required
+* Win32::API - Required only by the NT variant.
+* Win32API::Registry - Used only by the NT variant. It's optional
+    there, but if you don't have it you may get somewhat less
+    information, because the debug privilege can't be set.
+* Win32::OLE - Required only by the WMI variant.
+
+As of this release, all are standard with ActivePerl 5.6.1, but
+Win32API::Registry is not yet available with ActivePerl 5.8.0 --
+at least, not from ActiveState.
 
 
 INSTALLATION INSTRUCTIONS
@@ -72,7 +86,7 @@ them in /site/lib/Win32/Process (or wherever ...).
 COPYRIGHT NOTICE
 --------- ------
 
-Copyright 2001, 2002 by E. I. DuPont de Nemours and Company, Inc.
+Copyright 2001, 2002, 2003 by E. I. DuPont de Nemours and Company, Inc.
 All rights reserved.
 
 This module is free software; you can use it, redistribute it

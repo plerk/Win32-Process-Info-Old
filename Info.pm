@@ -61,10 +61,15 @@ The following methods should be considered public:
 #		Check environment variable
 #		PERL_WIN32_PROCESS_INFO_VARIANT for the default
 #		variant(s), if none is specified.
+#
+# 0.013	13-Mar-2003	T. R. Wyant
+#		Remove dependencies on Win32::API, Win32::OLE, and
+#			Win32API::Registry from Makefile.PL, since
+#			these are conditional.
 
 package Win32::Process::Info;
 
-$VERSION = '0.012';
+$VERSION = '0.013';
 
 use strict;
 use vars qw{%mutator %static};

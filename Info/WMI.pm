@@ -90,11 +90,15 @@ The following methods should be considered public:
 #		Got rid of ad-hoc retrieval check in 'new.' It wasn't
 #			doing what I wanted anyway (which was to cope
 #			with a flakey NT 4.0 WMI installation).
+#
+# 0.013	13-Mar-2003	T. R. Wyant
+#		Changed dependencies in Makefile.pl. See Info.pm for
+#			more information.
 
 package Win32::Process::Info::WMI;
 
 @ISA = qw{Win32::Process::Info};
-$VERSION = '0.012';
+$VERSION = '0.013';
 
 use strict;
 use vars qw{%mutator};

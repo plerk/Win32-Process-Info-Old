@@ -108,12 +108,19 @@ return undef;
 #			the very best). My own method preserved after
 #			the __END__ directive as a monument to - well,
 #			something.
+#
+# 0.013	13-Mar-2003	T. R. Wyant
+#		Changed dependencies in Makefile.pl. See Info.pm for
+#			more information.
+#		Made Win32API::Registry optional; if not found, just
+#			don't set SeDebugPrivilege.
+
 
 package Win32::Process::Info::NT;
 
 use base qw{Win32::Process::Info};
 use vars qw{$VERSION};
-$VERSION = '0.012';
+$VERSION = '0.013';
 
 use vars qw {
     $AdjustTokenPrivileges
@@ -142,7 +149,17 @@ use File::Basename;
 use Time::Local;
 use Win32;
 use Win32::API;
-use Win32API::Registry qw{:Func :SE_};
+
+my $setpriv;
+eval {
+    require Win32API::Registry and
+    $setpriv = sub {
+	Win32API::Registry::AllowPriv (
+	    Win32API::Registry::SE_DEBUG_NAME (), 1)
+	};
+    };
+$setpriv ||= sub {};
+##0.013 use Win32API::Registry qw{:Func :SE_};
 
 
 my %_transform = (
@@ -183,7 +200,8 @@ delete $self->{variant};
 $self->{_xfrm} = \%_transform;
 bless $self, $class;
 # We want to fail silently, since that's probably better than nothing.
-AllowPriv (SE_DEBUG_NAME, 1)
+##0.013	AllowPriv (SE_DEBUG_NAME, 1)
+$setpriv->();	##0.013
 ##    or croak "Error - Failed to (try to) assert privilege @{[
 ##	SE_DEBUG_NAME]}; $^E"
     ;
@@ -731,18 +749,18 @@ BOOL SetPrivilege(
     HANDLE hToken,          // access token handle
     LPCTSTR lpszPrivilege,  // name of privilege to enable/disable
     BOOL bEnablePrivilege   // to enable or disable privilege
-    ) 
+    )
 {
 TOKEN_PRIVILEGES tp;
 LUID luid;		// 64-bit identifier
 
-if ( !LookupPrivilegeValue( 
+if ( !LookupPrivilegeValue(
         NULL,            // lookup privilege on local system
-        lpszPrivilege,   // privilege to lookup 
+        lpszPrivilege,   // privilege to lookup
         &luid ) )        // receives LUID of privilege
 {
-    printf("LookupPrivilegeValue error: %u\n", GetLastError() ); 
-    return FALSE; 
+    printf("LookupPrivilegeValue error: %u\n", GetLastError() );
+    return FALSE;
 }
 
 tp.PrivilegeCount = 1;
@@ -755,16 +773,16 @@ else
 // Enable the privilege or disable all privileges.
 
 if ( !AdjustTokenPrivileges(
-       hToken, 
-       FALSE, 
-       &tp, 
-       sizeof(TOKEN_PRIVILEGES), 
-       (PTOKEN_PRIVILEGES) NULL, 
+       hToken,
+       FALSE,
+       &tp,
+       sizeof(TOKEN_PRIVILEGES),
+       (PTOKEN_PRIVILEGES) NULL,
        (PDWORD) NULL) )
-{ 
-      printf("AdjustTokenPrivileges error: %u\n", GetLastError() ); 
-      return FALSE; 
-} 
+{
+      printf("AdjustTokenPrivileges error: %u\n", GetLastError() );
+      return FALSE;
+}
 
 return TRUE;
 }
