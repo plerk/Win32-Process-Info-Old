@@ -1,6 +1,8 @@
 #!/usr/bin/perl -w
 
 use strict;
+
+use File::Spec;
 use Test;
 use Win32;
 use Win32::OLE;
@@ -12,12 +14,29 @@ my $proc = $wmi->Get ("Win32_Process='$$'") if $wmi;
 $wmi = undef unless $wmi && $proc;
 Win32::OLE->Option (Warn => $old_warn);
 
+my $nt_skip = Win32::IsWinNT () ? 0 :
+    "Skip Windows NT-family OS required";
+my @path = split ';', $ENV{Path};
+unless ($nt_skip) {
+DLL_LOOP:
+    foreach my $dll (qw{PSAPI.DLL ADVAPI32.DLL KERNEL32.DLL}) {
+	foreach my $loc (@path) {
+	    next DLL_LOOP if -e File::Spec->catfile ($loc, $dll);
+	    }
+	$nt_skip = "Skip $dll not found.";
+	last;
+	}
+    }
+
+$ENV{PERL_WIN32_PROCESS_INFO_WMI_DEBUG_PRIV} =
+$ENV{PERL_WIN32_PROCESS_INFO_WMI_PARIAH} = '';
+
 print "# Information - WMI object = ", defined $wmi ? "'$wmi'\n" : "undefined\n";
 print "# Information - WMI process object = ", defined $proc ? "'$proc'\n" : "undefined\n";
 print "# Win32::OLE->LastError = @{[Win32::OLE->LastError () || 'none']}\n";
 
 my %skip = (
-    NT	=> (Win32::IsWinNT () ? 0 : "Skip Windows NT (or 2000) required"),
+    NT	=> $nt_skip,
     WMI	=> ($wmi ? 0 : "Skip WMI required"),
     );
 $ENV{PERL_WIN32_PROCESS_INFO_VARIANT} and do {

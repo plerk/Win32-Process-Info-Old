@@ -1,6 +1,7 @@
 #!/usr/bin/perl -w
 
 use strict;
+use Data::Dumper;
 use Getopt::Std;
 use Win32::Process::Info;
 
@@ -8,7 +9,8 @@ $| = 1;
 
 my %opt;
 
-getopts ('bcdem:n:pr:su:v:x:', \%opt) or die <<"usage end";
+getopts ('bcdem:n:pr:stu:v:x', \%opt) && !($opt{s} && $opt{x})
+    or die <<"usage end";
 
 Testbed and demonstrator for Win32::Process::Info V $Win32::Process::Info::VERSION
 
@@ -18,13 +20,16 @@ where the allowed options are:
   -c = elapsed times in clunks (100-nanosecond intervals)
   -d = formatted dates where applicable
   -e = require an <Enter> to exit
+  -l = slow (lethargic)
   -mx = report on machine x (valid only with variant WMI)
   -nx = report on process name x (case-insensitive)
   -p = pulist output
   -rn = number of repeats to do
   -s = report SID rather than username with -p
+  -t = report process tree (overrides -p)
   -u user:password = guess (valid only with WMI)
   -vx = variant (a comma-separated list of 'WMI', 'NT')
+  -x = report executable path rather than username with -p
 
 Note that you may need to specify domain\\user:password with the -u
 option to get it to work.
@@ -52,13 +57,23 @@ for (my $iter8 = 0; $iter8 < $opt{r}; $iter8++) {
 	print "PIDs:\n",
 	    map {"    $_\n"} sort {$a <=> $b} $pi->ListPids (@ARGV);
 	}
+      elsif ($opt{t}) {
+	my %tree = $pi->Subprocesses (@ARGV);
+	local $Data::Dumper::Terse;
+	$Data::Dumper::Terse = 1;
+	print "Subprocesses: ", Dumper (\%tree);
+	}
       else {
-	my $key = $opt{s} ? 'OwnerSid' : 'Owner';
+	my ($key, $head) = $opt{x} ? ('ExecutablePath', 'Executable') :
+		$opt{s} ? ('OwnerSid', 'Owner SID') : ('Owner', 'Owner');
 	print $opt{p} ?
-	    sprintf "%-20s %4s  %s\n", 'Process', 'PID', 'User' :
+	    sprintf "%-20s %4s  %s\n", 'Process', 'PID', $head :
 	    "Process info by process:\n";
-	foreach my $proc (sort {$a->{ProcessId} <=> $b->{ProcessId}}
+	foreach my $proc ($opt{s} ?
+		@ARGV ? @ARGV : $pi->ListPids () :
+		sort {$a->{ProcessId} <=> $b->{ProcessId}}
 		$pi->GetProcInfo (@ARGV)) {
+	    $proc = ${$pi->GetProcInfo ($proc)}[0] unless ref $proc;
 	    next if $opt{n} && lc $proc->{Name} ne $opt{n};
 	    if ($opt{p}) {
 		printf "%-20s %4d  %s\n",

@@ -114,13 +114,22 @@ return undef;
 #			more information.
 #		Made Win32API::Registry optional; if not found, just
 #			don't set SeDebugPrivilege.
-
+#
+# 0.013_23 26-Jun-2003	T. R. Wyant
+#		Added optional first hashref argument to GetProcInfo,
+#			used no_user_info key to bypass user info. This
+#			was to be consistent with the WMI variant; the
+#			reason for adding this to WMI doesn't exist for
+#			this variant.
+#
+# 0.014	27-Jun-2003	T. R. Wyant
+#		Released.
 
 package Win32::Process::Info::NT;
 
 use base qw{Win32::Process::Info};
 use vars qw{$VERSION};
-$VERSION = '0.013';
+$VERSION = 0.014;
 
 use vars qw {
     $AdjustTokenPrivileges
@@ -346,8 +355,11 @@ use constant TOKEN_EXECUTE         => STANDARD_RIGHTS_EXECUTE;
 # Bool		I
 # DWord		I
 # Pointer	P
+
 sub GetProcInfo {
 my $self = shift;
+my $opt = ref $_[0] eq 'HASH' ? shift : {};
+
 $CloseHandle ||= _map ('KERNEL32', 'CloseHandle', [qw{N}], 'V');
 $GetModuleFileNameEx ||=
 	_map ('PSAPI', 'GetModuleFileNameEx', [qw{N N P N}], 'I');
@@ -451,6 +463,7 @@ foreach my $pid (map {$_ eq '.' ? $$ : $_} @_) {
     my ($tokhdl);
     $tokhdl = ' ' x 4;		# Token handle better be 4 bytes.
     {				# Start block, to use as single-iteration loop
+	last if $opt->{no_user_info};
 	$OpenProcessToken->Call ($prchdl, $tac, $tokhdl)
 	    or do {$tokhdl = undef; last; };
 	sub TokenUser {1};	# PER MSDN
@@ -702,6 +715,7 @@ This library uses the following libraries:
  Time::Local
  Win32
  Win32::API
+ Win32API::Registry (if available)
 
 As of this writing, all but Win32 and Win32::API are part of the
 standard Perl distribution. Win32 is not part of the standard Perl
@@ -731,7 +745,7 @@ Thomas R. Wyant, III (F<Thomas.R.Wyant-III@usa.dupont.com>)
 
 =head1 COPYRIGHT
 
-Copyright 2001, 2002 by E. I. DuPont de Nemours and Company, Inc.
+Copyright 2001, 2002, 2003 by E. I. DuPont de Nemours and Company, Inc.
 
 This module is free software; you can use it, redistribute it
 and/or modify it under the same terms as Perl itself.

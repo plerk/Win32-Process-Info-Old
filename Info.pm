@@ -9,6 +9,7 @@ Win32::Process::Info - Provide process information for Windows 32 systems.
  $pi->Set (elapsed_as_seconds => 0);	# In clunks, not seconds.
  @pids = $pi->ListPids ();	# Get all known PIDs
  @info = $pi->GetProcInfo ();	# Get the max
+ %subs = $pi->Subprocesses ();	# Figure out subprocess relationships.
 
 CAVEAT USER:
 
@@ -22,12 +23,12 @@ method (q.v.).
 The main purpose of the Win32::Process::Info package is to get whatever
 information is convenient (for the author!) about one or more Windows
 32 processes. GetProcInfo (which see) is therefore the most-important
-subroutine in the package. See it for more information.
+method in the package. See it for more information.
 
 Unless explicitly stated otherwise, modules, variables, and so
 on are considered private. That is, the author reserves the right
 to make arbitrary changes in the way they work, without telling
-anyone. For subroutines, variables, and so on which are considered
+anyone. For methods, variables, and so on which are considered
 public, the author will make an effort keep them stable, and failing
 that to call attention to changes.
 
@@ -66,14 +67,42 @@ The following methods should be considered public:
 #		Remove dependencies on Win32::API, Win32::OLE, and
 #			Win32API::Registry from Makefile.PL, since
 #			these are conditional.
+#
+# 0.013_2 21-May-2003	T. R. Wyant
+#		Add the %variant_support hash in response to INIT block
+#			errors in Win32::API when (effectively)
+#			require-d when the object is new-ed.
+#
+# 0.013_21 05-Jun-2003	T. R. Wyant
+#		Found a need to tweak the WMI variant. Wouldn't have
+#			incremented here, but wanted a different package
+#			number since I had previously send out 0.013_2
+#			privately. The tweak was the manual skipping of
+#			processes in response to the contents of
+#			$ENV{PERL_WIN32_PROCESS_INFO_WMI_PARIAH}
+#
+# 0.013_22 20-Jun-2003	T. R. Wyant
+#		No longer assert the debug privilege by default. Only
+#			do it $ENV{PERL_WIN32_PROCESS_INFO_WMI_DEBUG}
+#			is TRUE in the Perl sense.
+#		As a consequence of the effects of the above, default
+#			the pariah list to empty.
+#		Enhanced the test to skip the NT variant if it can't
+#			find all the DLLs.
+# 0.013_23 26-Jun-2003	T. R. Wyant
+#		Added method Subprocesses. Because I needed it.
+# 0.014	27-Jun-2003	T. R. Wyant
+#		Wrapped up latest version, released to CPAN.
 
 package Win32::Process::Info;
 
-$VERSION = '0.013';
+$VERSION = 0.014;
 
 use strict;
 use vars qw{%mutator %static};
+
 use Carp;
+use File::Spec;
 use Time::Local;
 use UNIVERSAL qw{isa};
 
@@ -81,16 +110,64 @@ use UNIVERSAL qw{isa};
     elapsed_in_seconds	=> 1,
     variant		=> $ENV{PERL_WIN32_PROCESS_INFO_VARIANT},
     );
-my %make_variant = (
-    NT => sub {
-	require Win32::Process::Info::NT;
-	Win32::Process::Info::NT->new (@_);
+
+#	The real reason for the %variant_support hash is to deal with
+#	the apparant inability of Win32::API to be 'require'-d anywhere
+#	but in a BEGIN block. The 'unsupported' key is intended to be
+#	used as a 'necessary but not required' criterion; that is, if
+#	'unsupported' is true, there's no reason to bother; but if it's
+#	false, there may still be problems of some sort. This is par-
+#	ticularly true of WMI, where the full check is rather elephan-
+#	tine.
+#
+#	While I was at it, I decided to consolidate all the variant-
+#	specific information in one spot and, while I was at it, write
+#	a variant checker utility.
+
+my %variant_support;
+BEGIN {
+%variant_support = (
+    NT => {
+	make => sub {
+		require Win32::Process::Info::NT;
+		Win32::Process::Info::NT->new (@_);
+		},
+	unsupported => eval {
+		return "Your OS is not a member of the Windows NT family"
+		    unless Win32::IsWinNT ();
+		return "I can not find Win32::API"
+		    unless require Win32::API;
+		my @path = split ';', $ENV{Path};
+DLL_LOOP:
+		foreach my $dll (qw{PSAPI.DLL ADVAPI32.DLL KERNEL32.DLL}) {
+		    foreach my $loc (@path) {
+			next DLL_LOOP if -e File::Spec->catfile ($loc, $dll);
+			}
+		    return "I can not find $dll";
+		    }
+		return 0;
+		} || $@,
 	},
-    WMI => sub {
-	require Win32::Process::Info::WMI;
-	Win32::Process::Info::WMI->new (@_);
+    WMI => {
+	make => sub {
+		require Win32::Process::Info::WMI;
+		Win32::Process::Info::WMI->new (@_);
+		},
+	unsupported => eval {
+		return "I can not find Win32::OLE"
+		    unless require Win32::OLE;
+		return 0;
+		},
 	},
     );
+}
+sub _check_variant {
+croak "Error - Variant '$_[0]' is unknown."
+    unless exists $variant_support{$_[0]};
+croak "Error - Variant '$_[0]' is unsupported on your configuration. $variant_support{$_[0]}{unsupported}"
+    if $variant_support{$_[0]}{unsupported};
+return 1;
+}
 
 %mutator = (
     elapsed_in_seconds	=> sub {$_[2]},
@@ -98,8 +175,7 @@ my %make_variant = (
 	croak "Error - Variant can not be set on an instance."
 	    if isa ($_[0], 'Win32::Process::Info');
 	foreach (split '\W+', $_[2]) {
-	    croak "Error - Variant '$_' is unknown."
-		unless exists $make_variant{$_};
+	    _check_variant ($_);
 	    }
 	$_[2]},
     );
@@ -172,9 +248,8 @@ my $mach = $arg{host} or delete $arg{host};
 my $try = $arg{variant} || $static{variant} || 'WMI,NT';
 foreach $variant (grep {$_} split '\W+', $try) {
     eval {
-	croak "Error - Variant '$variant' is unknown."
-	    unless exists $make_variant{$variant};
-	$self = $make_variant{$variant}->(\%arg);
+	_check_variant ($variant);
+	$self = $variant_support{$variant}{make}->(\%arg);
 	};
     if ($self) {
 	$static{variant} ||= $variant;
@@ -208,8 +283,9 @@ commas. 'WMI' selects the Windows Management Implementation, and
 'NT' selects the Windows NT native interface. B<variant> can
 only be set on the class, not the instance. If you set
 B<variant> to an empty string (the default), the next "new"
-will iterate over all possibilities, and set B<variant> to
-the first one that actually works.
+will iterate over all possibilities (or the contents of
+environment variable PERL_WIN32_PROCESS_INFO_VARIANT if present),
+and set B<variant> to the first one that actually works.
 
 B<machine> is the name of the machine connected to. This is
 not available as a class attribute.
@@ -322,10 +398,67 @@ You may find other keys available as well, depending on which
 operating system you're using, and which variant of Process::Info
 you're using.
 
+This method also optionally takes as its first argument a reference
+to a hash of option values. The only supported key is:
+
+    no_user_info => 1
+	Do not return keys Owner and OwnerSid, even if available.
+	These tend to be time-consuming.
 =cut
 
 sub GetProcInfo {
 croak "Error - Whoever coded this forgot to override GetProcInfo.";
+}
+
+=item %subs = $pi->Subprocesses ([pid ...])
+
+This method takes as its argument a list of PIDs, and returns a hash
+indexed by PID and containing, for each PID, a reference to a list of
+all subprocesses of that process. If those processes have subprocesses
+as well, you will get the sub-sub processes, and so ad infinitum, so
+you may well get back more hash keys than you passed process IDs. Note
+that the process of finding the sub-sub processes is iterative, not
+recursive; so you don't get back a tree.
+
+If no argument is passed, you get all processes in the system.
+
+If called in scalar context you get a reference to the hash.
+
+This method works off the ParentProcessId attribute. Not all variants
+support this. If the variant you're using doesn't support this
+attribute, you get back an empty hash. Specifically:
+
+NT -> unsupported
+WMI -> supported
+
+=cut
+
+sub Subprocesses {
+my $self = shift;
+my %prox = map {($_->{ProcessId} => $_)}
+	@{$self->GetProcInfo ({no_user_info => 1})};
+my %subs;
+my $rslt = \%subs;
+my $key_found;
+foreach my $proc (values %prox) {
+    $subs{$proc->{ProcessId}} ||= [];
+    next unless $proc->{ParentProcessId};
+    $key_found++;
+    next unless $prox{$proc->{ParentProcessId}};
+    push @{$subs{$proc->{ParentProcessId}}}, $proc->{ProcessId};
+    }
+my %listed;
+return %listed unless $key_found;
+if (@_) {
+    $rslt = \%listed;
+    while (@_) {
+	my $pid = shift;
+	next if $listed{$pid};
+	$listed{$pid} = $subs{$pid};
+	push @_, @{$subs{$pid}};
+	}
+    }
+return wantarray ? %$rslt : $rslt;
 }
 
 =item print "$pi Version = @{[$pi->Version ()]}\n"
@@ -402,6 +535,30 @@ __END__
 
 =back
 
+=head1 ENVIRONMENT
+
+This package is sensitive to a number of environment variables:
+
+PERL_WIN32_PROCESS_INFO_VARIANT
+
+If present, specifies which variant(s) are tried, in which order. The
+default behaviour is equivalent to specifying 'WMI,NT'.
+
+PERL_WIN32_PROCESS_INFO_WMI_DEBUG_PRIV
+
+If present and containing a value Perl recognizes as true, causes the
+WMI variant to assert the "Debug" privilege. This has the advantage of
+returning more full paths, but the disadvantage of tending to cause
+Perl to die when trying to get the owner information on the
+newly-accessable processes.
+
+PERL_WIN32_PROCESS_INFO_WMI_PARIAH
+
+If present, should contain a semicolon-delimited list of process names
+for which the package should not attempt to get owner information. '*'
+is a special case meaning 'all'. You will probably need to use this if
+you assert PERL_WIN32_PROCESS_INFO_WMI_DEBUG_PRIV.
+
 =head1 REQUIREMENTS
 
 It should be obvious that this library must run under some
@@ -425,13 +582,27 @@ included with ActivePerl. Your mileage may vary.
        Fixed warning in NT.pm when -w in effect. Fix provided by Judy
            Hawkins (of Pitney Bowes, according to her mailing address),
            and accepted with thanks.
- 0.012 Use environment variable PERL_WIN32_PROCESS_INFO_VARIANT to
+ 0.012 Hid attributes beginning with "_".
+ 0.013 Use environment variable PERL_WIN32_PROCESS_INFO_VARIANT to
            specify the default variant list.
        Add a hash reference argument to new (); use this to specify
            username and password to the WMI variant.
        Turn on debug privilege in NT variant. This also resulted in
            dependency on Win32API::Registry.
        Return OwnerSid and Owner in NT variant.
+ 0.014 Remove conditional dependencies from Makefile.PL
+       Track changes in Win32::API. Can no longer "require" it.
+       WMI variant no longer asserts debug privilege by default.
+       Use environment variable PERL_WIN32_PROCESS_INFO_WMI_DEBUG to
+          tell the WMI variant whether to assert debug.
+       Use environment variable PERL_WIN32_PROCESS_INFO_WMI_PARIAH
+          to encode processes to skip when determining the owner.
+       Add optional first hash ref argument to GetProcInfo.
+       Add Subprocesses method.
+=head1 RESTRICTIONS
+
+You can not "require" this library except in a BEGIN block. This is a
+consequence of the use of Win32::API, which has the same restriction.
 
 =head1 ACKNOWLEDGMENTS
 
@@ -463,7 +634,7 @@ Thomas R. Wyant, III (F<Thomas.R.Wyant-III@usa.dupont.com>)
 
 =head1 COPYRIGHT
 
-Copyright 2001, 2002 by E. I. DuPont de Nemours and Company, Inc.
+Copyright 2001, 2002, 2003 by E. I. DuPont de Nemours and Company, Inc.
 All rights reserved.
 
 This module is free software; you can use it, redistribute it

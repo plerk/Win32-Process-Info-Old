@@ -93,12 +93,46 @@ The following methods should be considered public:
 #
 # 0.013	13-Mar-2003	T. R. Wyant
 #		Changed dependencies in Makefile.pl. See Info.pm for
-#			more information.
+#			more information. Released to CPAN.
+#
+# 0.013_1 13-Apr-2003	T. R. Wyant
+#		Don't get sid and owner for knlwrap.exe. I have no
+#		logic for this, but I note that pulist doesn't try,
+#		and WBEMTEST fails to record an executable path, which
+#		is my normal ad-hocery for skipping the user fetch.
+#
+# 0.013_2 21-Apr-2003	T. R. Wyant
+#		Build the %pariah hash (processes not to call methods
+#		on) from $ENV{PERL_WIN32_PROCESS_INFO_WMI_PARIAH} if
+#		this is present; otherwise use a hardwired list.
+#
+# 0.013_21 05-Jun-2003	T. R. Wyant
+#		Added nodemgr.exe to %pariah.
+#
+# 0.013_22 20-Jun-2003	T. R. Wyant
+#		Added LUCOMS~1.EXE to %pariah.
+#		Special-case PERL_WIN32_PROCESS_INFO_WMI_PARIAH=*
+#			to mean all processes.
+#		DO NOT assert wbemPrivilegeDebug by default. Do so only
+#			if PERL_WIN32_PROCESS_INFO_WMI_DEBUG is TRUE.
+#		After some testing on the above, empty the %pariah hash.
+#			Note that the previous value was
+#			'dllhost.exe;knlwrap.exe;lucoms~1.exe;nodemgr.exe'.
+#
+# 0.013_23 26-Jun-2003	T. R. Wyant
+#		Added optional first hashref argument to GetProcInfo,
+#			used no_user_info key to bypass user info. This
+#			was in support of the Subprocesses method of
+#			Win32::Process::Info.
+#
+# 0.014	27-Jun-2003	T. R. Wyant
+#		Released.
 
 package Win32::Process::Info::WMI;
 
-@ISA = qw{Win32::Process::Info};
-$VERSION = '0.013';
+use base qw{Win32::Process::Info};
+use vars qw{$VERSION};
+$VERSION = 0.014;
 
 use strict;
 use vars qw{%mutator};
@@ -110,6 +144,12 @@ use Win32::OLE::Variant;
 
 
 %mutator = %Win32::Procecss::Info::mutator;
+
+my %pariah = map {($_ => 1)} grep {$_} split ';',
+    lc ($ENV{PERL_WIN32_PROCESS_INFO_WMI_PARIAH} || '');
+my $no_user_info = $ENV{PERL_WIN32_PROCESS_INFO_WMI_PARIAH} &&
+    $ENV{PERL_WIN32_PROCESS_INFO_WMI_PARIAH} eq '*';
+my $assert_debug_priv = $ENV{PERL_WIN32_PROCESS_INFO_WMI_DEBUG};
 
 
 #	note that "new" is >>>NOT<<< considered a public
@@ -163,7 +203,8 @@ if ($user) {
 
     $locator->{Security_}{ImpersonationLevel} =
 	$wmi_const->{wbemImpersonationLevelImpersonate};
-    $locator->{Security_}{Privileges}->Add ($wmi_const->{wbemPrivilegeDebug});
+    $locator->{Security_}{Privileges}->Add ($wmi_const->{wbemPrivilegeDebug})
+	if $assert_debug_priv;
 
     $wmi = $locator->ConnectServer (
 	$mach,				# Server
@@ -178,7 +219,8 @@ if ($user) {
   else {
     my $mm = $mach || '.';
     $wmi = Win32::OLE->GetObject (
-	"winmgmts:{impersonationLevel=impersonate,(Debug)}!//$mm/root/cimv2");
+	"winmgmts:{impersonationLevel=impersonate@{[
+		$assert_debug_priv ? ',(Debug)' : '']}}!//$mm/root/cimv2");
     }
 
 $wmi or do {
@@ -294,6 +336,7 @@ return @procs;
 
 sub GetProcInfo {
 my $self = shift;
+my $opt = ref $_[0] eq 'HASH' ? shift : {};
 my @pinf;
 my %username;
 my $sid = Variant (VT_BYREF | VT_BSTR, '');
@@ -301,6 +344,9 @@ my $user = Variant (VT_BYREF | VT_BSTR, '');
 my $domain = Variant (VT_BYREF | VT_BSTR, '');
 my $old_warn = Win32::OLE->Option ('Warn');
 Win32::OLE->Option (Warn => 0);
+
+my $skip_user = $no_user_info || $opt->{no_user_info};
+
 foreach my $proc (_get_proc_objects ($self, @_)) {
     my $phash = $self->_build_hash (
 	undef, map {($_, $proc->{$_})} @{$self->{_attr}});
@@ -319,8 +365,11 @@ foreach my $proc (_get_proc_objects ($self, @_)) {
 
     eval {
 	return unless $proc->{ExecutablePath};
-	return if $proc->GetOwnerSid ($sid);
+	return if $skip_user || $pariah{lc $proc->{Name}};
+	$sid->Put ('');
+	$proc->GetOwnerSid ($sid);
 	$oid = $sid->Get ();
+	return unless $oid;
 	$phash->{OwnerSid} = $oid;
 	unless ($username{$oid}) {
 	    $username{$oid} =
@@ -413,6 +462,8 @@ This library uses the following libraries:
   Carp
   Time::Local
   Win32::OLE
+  use Win32::OLE::Const;
+  use Win32::OLE::Variant;
 
 As of ActivePerl 630, none of the variant libraries use any libraries
 that are not included with ActivePerl. Your milage may vary.
@@ -435,7 +486,7 @@ Thomas R. Wyant, III (F<Thomas.R.Wyant-III@usa.dupont.com>)
 
 =head1 COPYRIGHT
 
-Copyright 2001,2002 by E. I. DuPont de Nemours and Company, Inc.
+Copyright 2001, 2002, 2003 by E. I. DuPont de Nemours and Company, Inc.
 
 This module is free software; you can use it, redistribute it
 and/or modify it under the same terms as Perl itself.

@@ -1,4 +1,4 @@
-Win32::Process::Info version 0.013
+Win32::Process::Info version 0.014
 
 This module is intended to partly plug a perceived gap in Perl's Win32
 functionality: the inability to traverse all (or nearly all) the processes
@@ -46,9 +46,9 @@ performance if you don't have them. The libraries used are
     information, because the debug privilege can't be set.
 * Win32::OLE - Required only by the WMI variant.
 
-As of this release, all are standard with ActivePerl 5.6.1, but
-Win32API::Registry is not yet available with ActivePerl 5.8.0 --
-at least, not from ActiveState.
+As of this release, all are standard with ActivePerl 5.6.1. Enough
+are available under ActivePerl 5.8.0 to let the module pass the
+self-test, but beyond that I can't say what the situation is.
 
 
 INSTALLATION INSTRUCTIONS
@@ -64,7 +64,7 @@ standard commands:
  nmake test
  nmake install
 
-Note that the "test" step is optional.
+Note that the "test" step is optional, but recommended.
 
 See ftp://ftp.microsoft.com/Softlib/MSLFILES/nmake15.exe for a copy of
 nmake if you need it.
@@ -74,7 +74,7 @@ PPM kit:
 
 Expand the kit using unzip (or equivalent). Then
 
- ppm install Win32-ProcInfo.ppd
+ ppm install Win32-Process-Info.ppd
 
 
 If all else fails:
