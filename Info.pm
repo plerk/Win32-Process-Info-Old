@@ -110,15 +110,30 @@ The following methods should be considered public:
 #			is the docs, it's time to call it production
 #			code. And if _that_ statement doesn't flush
 #			out more problems, nothing will.
+#
 # 1.001	05-Jan-2004	T. R. Wyant
 #		No changes to the code itself. But removed the
 #			dependency on Win32 in Makefile.PL because
 #			PPM3 chokes on it, and I figure anyone who isn't
 #			using PPM is smart enough to read the Readme.
+#
+# 1.001_01 24-Feb-2004	T. R. Wyant
+#		Failed attempt to fix WMI memory leak. But it's clearly
+#		associated with the use of Win32::OLE::Variant objects
+#		to retrieve the owner information, because the code
+#		appears not to leak if we don't do this. Versions prior
+#		to this one leaked anyway, because the Variant objects
+#		were allocated whether or not they were used. But this
+#		version doesn't allocate them unless they are to be
+#		used.
+#
+# 1.002	07-Jun-2004	T. R. Wyant
+#		Document leaks under WMI, and how to minimize. Document
+#		related modules.
 
 package Win32::Process::Info;
 
-$VERSION = 1.001;
+$VERSION = 1.002;
 
 use strict;
 use vars qw{%mutator %static};
@@ -231,20 +246,23 @@ list, though positional arguments are illegal after the hash reference.
 The following hash keys are supported:
 
   variant => corresponds to the 'variant' argument (all)
-  assert_debug_priv => assert debug if available (all) This only has
-	effect under WMI. The NT variant always asserts debug. You want
-	to be careful doing this under WMI if you're fetching the
-	process owner information, since can be badly behaved for those
-	processes whose ExecutablePath is only available with the debug
+  assert_debug_priv => assert debug if available (all) This
+	only has effect under WMI. The NT variant always
+	asserts debug. You want to be careful doing this
+	under WMI if you're fetching the process owner
+	information, since the script can be badly behaved
+	(i.e. die horribly) for those processes whose
+	ExecutablePath is only available with the debug
 	privilege turned on.
   host => corresponds to the 'machine' argument (WMI)
   user => username to perform operation under (WMI)
-  password => password corresponding to the given username (WMI)
+  password => password corresponding to the given
+	username (WMI)
 
 ALL hash keys are optional. SOME hash keys are only supported under
 certain variants. These are indicated in parentheses after the
-description of the key. An attempt to specify a key on a variant
-that does not support it is an error.
+description of the key. It is an error to specify a key that the
+variant in use does not support.
 
 =cut
 
@@ -305,7 +323,7 @@ kernel times to seconds. If FALSE, they are returned in
 clunks (that is, hundreds of nanoseconds). The default is
 TRUE.
 
-B<variant> is the variant of the process info code in use,
+B<variant> is the variant of the Process::Info code in use,
 and should be zero or more of 'WMI' or 'NT', separated by
 commas. 'WMI' selects the Windows Management Implementation, and
 'NT' selects the Windows NT native interface. B<variant> can
@@ -346,11 +364,6 @@ Win32::Process::Info->Set ()) to change default attribute values.
 
 The relevant attribute names are the same as for Get.
 However:
-
-B<elapsed_as_seconds> is TRUE to convert elapsed user and
-kernel times to seconds. If FALSE, they are returned in
-clunks (that is, hundreds of nanoseconds). The default is
-TRUE.
 
 B<variant> is read-only at the instance level. That is,
 Win32::Process::Info->Set (variant => 'NT') is OK, but
@@ -431,7 +444,8 @@ to a hash of option values. The only supported key is:
 
     no_user_info => 1
 	Do not return keys Owner and OwnerSid, even if available.
-	These tend to be time-consuming.
+	These tend to be time-consuming, and can cause problems
+	under the WMI variant.
 
 =cut
 
@@ -608,39 +622,83 @@ included with ActivePerl. Your mileage may vary.
 
  0.010 Released as Win32::Process::Info
  0.011 Added Version method
-       Fixed warning in NT.pm when -w in effect. Fix provided by Judy
-           Hawkins (of Pitney Bowes, according to her mailing address),
-           and accepted with thanks.
+       Fixed warning in NT.pm when -w in effect. Fix provided
+           by Judy Hawkins (of Pitney Bowes, according to her
+           mailing address), and accepted with thanks.
  0.012 Hid attributes beginning with "_".
- 0.013 Use environment variable PERL_WIN32_PROCESS_INFO_VARIANT to
-           specify the default variant list.
-       Add a hash reference argument to new (); use this to specify
-           username and password to the WMI variant.
-       Turn on debug privilege in NT variant. This also resulted in
-           dependency on Win32API::Registry.
+ 0.013 Use environment variable PERL_WIN32_PROCESS_INFO_VARIANT
+           to specify the default variant list.
+       Add a hash reference argument to new (); use this to
+           specify username and password to the WMI variant.
+       Turn on debug privilege in NT variant. This also resulted
+           in dependency on Win32API::Registry.
        Return OwnerSid and Owner in NT variant.
  0.014 Remove conditional dependencies from Makefile.PL
        Track changes in Win32::API. Can no longer "require" it.
        WMI variant no longer asserts debug privilege by default.
-       Use environment variable PERL_WIN32_PROCESS_INFO_WMI_DEBUG to
-          tell the WMI variant whether to assert debug.
+       Use environment variable PERL_WIN32_PROCESS_INFO_WMI_DEBUG
+          to tell the WMI variant whether to assert debug.
        Use environment variable PERL_WIN32_PROCESS_INFO_WMI_PARIAH
           to encode processes to skip when determining the owner.
        Add optional first hash ref argument to GetProcInfo.
        Add Subprocesses method.
  1.000 Add assert_debug_priv hash argument to the 'new' method.
        Fix documentation, both pod errors and actual doc bugs.
-       When the only thing you've done in two months is add a semicolon
-           to a comment, it's probably time to call it production code.
- 1.001 Removed dependency on Win32. We still need it, of course, but
-       PPM3 chokes on it, and I figure anyone who B<is> using PPM3
-       already has it, and anyone who B<isn't> is smart enough to figure
-       out what's going on - or at least read the Readme.
+       When the only thing you've done in two months is add a
+           semicolon to a comment, it's probably time to call it
+           production code.
+ 1.001 Removed dependency on Win32. We still need it, of course,
+       but PPM3 chokes on it, and I figure anyone who IS using
+       PPM3 already has it, and anyone who ISN'T is smart enough
+       to figure out what's going on - or at least read the Readme.
+ 1.002 Document leaky behaviour of WMI variant, and try to make it
+       leak less. Document related modules.
+
+=head1 BUGS
+
+The WMI variant leaks memory - badly for 1.001 and earlier. After
+1.001 it only leaks badly if you retrieve the process owner
+information. If you're trying to write a daemon, the NT variant
+is recommended. If you're stuck with WMI, set the no_user_info flag
+when you call GetProcInfo. This won't stop the leaks, but it minimizes
+them, at the cost of not returning the username or SID.
 
 =head1 RESTRICTIONS
 
 You can not "require" this library except in a BEGIN block. This is a
-consequence of the use of Win32::API, which has the same restriction.
+consequence of the use of Win32::API, which has the same restriction,
+at least in some versions.
+
+=head1 RELATED MODULES
+
+Win32::Process::Info focuses on returning static data about a process.
+If this module doesn't do what you want, maybe one of the following
+ones will.
+
+=over 4
+
+=item Win32::PerfLib by Jutta M. Klebe
+
+This module focuses on performance counters. It is a ".xs" module,
+and requires Visual C++ 6.0 to install. But it's also part of LibWin32,
+and should come with ActivePerl.
+
+=item Win32::IProc by Amine Moulay Ramdane
+
+This module is no longer supported, and the source has been lost. Which
+is a shame, because it returns per-thread information as well.
+
+=item Win32API::ProcessStatus, by Ferdinand Prantl
+
+This module focuses on the .exe and .dll files used by the process. It
+is a ".xs" module, requiring Visual C++ 6.0 and psapi.h to install.
+
+=item pulist
+
+This is not a Perl module, it's an executable that comes with the NT
+resource kit.
+
+=back
 
 =head1 ACKNOWLEDGMENTS
 
@@ -672,7 +730,8 @@ Thomas R. Wyant, III (F<Thomas.R.Wyant-III@usa.dupont.com>)
 
 =head1 COPYRIGHT
 
-Copyright 2001, 2002, 2003 by E. I. DuPont de Nemours and Company, Inc.
+Copyright 2001, 2002, 2003, 2004 by
+E. I. DuPont de Nemours and Company, Inc.
 All rights reserved.
 
 This module is free software; you can use it, redistribute it

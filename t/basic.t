@@ -14,8 +14,14 @@ my $proc = $wmi->Get ("Win32_Process='$$'") if $wmi;
 $wmi = undef unless $wmi && $proc;
 Win32::OLE->Option (Warn => $old_warn);
 
-my $nt_skip = Win32::IsWinNT () ? 0 :
-    "Skip Windows NT-family OS required";
+#	Figure out whether we support the NT variant.
+
+my $nt_skip;
+BEGIN {
+$nt_skip = Win32::IsWinNT () ? eval {require Win32::API} ? 0 :
+    "Skip Win32::API not installed." :
+    "Skip Windows NT-family OS required.";
+}
 my @path = split ';', $ENV{Path};
 unless ($nt_skip) {
 DLL_LOOP:
@@ -28,6 +34,9 @@ DLL_LOOP:
 	}
     }
 
+# OK, we've checked all the "external" causes of failure for the NT
+# variant that I can think of.
+
 $ENV{PERL_WIN32_PROCESS_INFO_WMI_DEBUG_PRIV} =
 $ENV{PERL_WIN32_PROCESS_INFO_WMI_PARIAH} = '';
 
@@ -37,7 +46,7 @@ print "# Win32::OLE->LastError = @{[Win32::OLE->LastError () || 'none']}\n";
 
 my %skip = (
     NT	=> $nt_skip,
-    WMI	=> ($wmi ? 0 : "Skip WMI required"),
+    WMI	=> ($wmi ? 0 : "Skip WMI required."),
     );
 $ENV{PERL_WIN32_PROCESS_INFO_VARIANT} and do {
     my %var = map {($_, 1)} split ',', uc $ENV{PERL_WIN32_PROCESS_INFO_VARIANT};
@@ -50,7 +59,8 @@ $ENV{PERL_WIN32_PROCESS_INFO_VARIANT} and do {
 foreach (@ARGV) {$skip{$_} = "Skip user request" unless $skip{$_}}
 
 my $test_num = 1;
-######################### We start with some black magic to print on failure.
+
+################### We start with some black magic to print on failure.
 
 # (It may become useful if the test is moved to ./t subdirectory.)
 
@@ -80,7 +90,9 @@ foreach my $variant (qw{NT WMI}) {
     print "# Test $test_num - Instantiating the $variant variant.\n";
     my $pi = Win32::Process::Info->new (undef, $variant) unless $skip;
     skip ($skip, $pi);
-    $skip ||= !$pi;
+    $skip = "Skip Can't instatiate $variant variant"
+	unless $pi || $skip;
+##    $skip ||= !$pi;
 
 
     $test_num++;

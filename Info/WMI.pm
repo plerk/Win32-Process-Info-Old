@@ -137,12 +137,22 @@ The following methods should be considered public:
 #			is the docs, it's time to call it production
 #			code. And if _that_ statement doesn't flush
 #			out more problems, nothing will.
+#
+# 1.001_01 24-Feb-2004	T. R. Wyant
+#		Failed attempt to fix WMI memory leak. But it's clearly
+#		associated with the use of Win32::OLE::Variant objects
+#		to retrieve the owner information, because the code
+#		appears not to leak if we don't do this. Versions prior
+#		to this one leaked anyway, because the Variant objects
+#		were allocated whether or not they were used. But this
+#		version doesn't allocate them unless they are to be
+#		used.
 
 package Win32::Process::Info::WMI;
 
 use base qw{Win32::Process::Info};
 use vars qw{$VERSION};
-$VERSION = 1.000;
+$VERSION = 1.001_01;
 
 use strict;
 use vars qw{%mutator};
@@ -350,13 +360,32 @@ my $self = shift;
 my $opt = ref $_[0] eq 'HASH' ? shift : {};
 my @pinf;
 my %username;
-my $sid = Variant (VT_BYREF | VT_BSTR, '');
-my $user = Variant (VT_BYREF | VT_BSTR, '');
-my $domain = Variant (VT_BYREF | VT_BSTR, '');
+my ($sid, $user, $domain);
 my $old_warn = Win32::OLE->Option ('Warn');
 Win32::OLE->Option (Warn => 0);
 
 my $skip_user = $no_user_info || $opt->{no_user_info};
+unless ($skip_user) {
+    $sid = Variant (VT_BYREF | VT_BSTR, '');
+##    $sid = Variant (VT_BSTR, '');
+    $user = Variant (VT_BYREF | VT_BSTR, '');
+    $domain = Variant (VT_BYREF | VT_BSTR, '');
+#
+#	The following plausable ways of caching the variant to try to
+#	stem the associated memory leak result in an access violation
+#	the second time through (i.e. the first time the object is
+#	retrieved from cache rather than being manufactured). God knows
+#	why, but so far He has not let me in on the secret. Sometimes
+#	There's an OLE type mismatch error before the access violation
+#	is reported, but sometimes not.
+#
+##    $sid = $self->{_variant}{sid} ||= Variant (VT_BYREF | VT_BSTR, '');
+##    $user = $self->{_variant}{user} ||= Variant (VT_BYREF | VT_BSTR, '');
+##    $domain = $self->{_variant}{domain} ||= Variant (VT_BYREF | VT_BSTR, '');
+##    $sid = $Win32::Process::Info::WMI::sid ||= Variant (VT_BYREF | VT_BSTR, '');
+##    $user = $Win32::Process::Info::WMI::user ||= Variant (VT_BYREF | VT_BSTR, '');
+##    $domain = $Win32::Process::Info::WMI::domain ||= Variant (VT_BYREF | VT_BSTR, '');
+    }
 
 foreach my $proc (_get_proc_objects ($self, @_)) {
     my $phash = $self->_build_hash (
@@ -497,7 +526,8 @@ Thomas R. Wyant, III (F<Thomas.R.Wyant-III@usa.dupont.com>)
 
 =head1 COPYRIGHT
 
-Copyright 2001, 2002, 2003 by E. I. DuPont de Nemours and Company, Inc.
+Copyright 2001, 2002, 2003, 2004 by
+E. I. DuPont de Nemours and Company, Inc.
 
 This module is free software; you can use it, redistribute it
 and/or modify it under the same terms as Perl itself.
