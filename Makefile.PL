@@ -7,10 +7,6 @@ WriteMakefile (
 	NAME => 'Win32::Process::Info',
 	VERSION_FROM => 'Info.pm',
 	PREREQ_PM => {
-##1.001			'Win32' => 0.18,
-##0.013			'Win32::API' => 0.01,
-##0.013			'Win32::OLE' => 0.1502,
-##0.013			'Win32API::Registry' => 0.22,
 			},
 #	'linkext' => {LINKTYPE => ''},
 	'dist' => {COMPRESS => 'gzip', SUFFIX => 'gz'},

@@ -139,10 +139,17 @@ The following methods should be considered public:
 #		documentation.
 #		Document current whereabouts of Win32::IProc - or at
 #		least the sad remnants of it.
+# 1.004	30-Dec-2004	T. R. Wyant
+#		No code change. Removed the commented-out dependencies
+#		in Makefile.PL, since sometime in the last 6 months
+#		someone has enhanced CPAN's validation to generate
+#		a bug report when I do this. The only hard-and-fast
+#		dependency is on Win32, but ActiveState's PPM3
+#		chokes on this.
 
 package Win32::Process::Info;
 
-$VERSION = 1.003;
+$VERSION = 1.004;
 
 use strict;
 use vars qw{%mutator %static};
@@ -677,6 +684,10 @@ included with ActivePerl. Your mileage may vary.
        Added the current status and whereabouts of
        Win32::IProc. Thanks to Eric Bluestein
        (http://www.emblue.com/) for pointing this out.
+ 1.004 Remove commented-out dependencies in Makefile.PL,
+       since CPAN's now checking. The only one that really
+       counts is Win32, but ActiveState's PPM3 chokes on
+       this, or at least did as of January 2001.
 
 =head1 BUGS
 
