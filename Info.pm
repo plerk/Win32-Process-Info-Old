@@ -4,7 +4,7 @@ Win32::Process::Info - Provide process information for Windows 32 systems.
 
 =head1 SYNOPSIS
 
- use Win32::Process::Info
+ use Win32::Process::Info;
  $pi = Win32::Process::Info->new ([machine], [variant]);
  $pi->Set (elapsed_as_seconds => 0);	# In clunks, not seconds.
  @pids = $pi->ListPids ();	# Get all known PIDs
@@ -89,14 +89,31 @@ The following methods should be considered public:
 #			the pariah list to empty.
 #		Enhanced the test to skip the NT variant if it can't
 #			find all the DLLs.
+#
 # 0.013_23 26-Jun-2003	T. R. Wyant
 #		Added method Subprocesses. Because I needed it.
+#
 # 0.014	27-Jun-2003	T. R. Wyant
 #		Wrapped up latest version, released to CPAN.
+#
+# 0.014_01 25-Jul-2003	T. R. Wyant
+#		Straightened out some of the POD.
+#		Added hash argument assert_debug_priv to 'new' method.
+#			This is legal for all variants, but only
+#			affects the WMI variant.
+# 0.014_02 16-Aug-2003	T. R. Wyant
+#		Added missing semicolon after "use Win32::Process::Info"
+#			in the synopsis.
+#
+# 1.000 09-Oct-2003	T. R. Wyant
+#		When the only thing you've fixed in the last two months
+#			is the docs, it's time to call it production
+#			code. And if _that_ statement doesn't flush
+#			out more problems, nothing will.
 
 package Win32::Process::Info;
 
-$VERSION = 0.014;
+$VERSION = 1.000;
 
 use strict;
 use vars qw{%mutator %static};
@@ -209,6 +226,12 @@ list, though positional arguments are illegal after the hash reference.
 The following hash keys are supported:
 
   variant => corresponds to the 'variant' argument (all)
+  assert_debug_priv => assert debug if available (all) This only has
+	effect under WMI. The NT variant always asserts debug. You want
+	to be careful doing this under WMI if you're fetching the
+	process owner information, since can be badly behaved for those
+	processes whose ExecutablePath is only available with the debug
+	privilege turned on.
   host => corresponds to the 'machine' argument (WMI)
   user => username to perform operation under (WMI)
   password => password corresponding to the given username (WMI)
@@ -404,6 +427,7 @@ to a hash of option values. The only supported key is:
     no_user_info => 1
 	Do not return keys Owner and OwnerSid, even if available.
 	These tend to be time-consuming.
+
 =cut
 
 sub GetProcInfo {
@@ -428,8 +452,8 @@ This method works off the ParentProcessId attribute. Not all variants
 support this. If the variant you're using doesn't support this
 attribute, you get back an empty hash. Specifically:
 
-NT -> unsupported
-WMI -> supported
+ NT -> unsupported
+ WMI -> supported
 
 =cut
 
@@ -599,6 +623,11 @@ included with ActivePerl. Your mileage may vary.
           to encode processes to skip when determining the owner.
        Add optional first hash ref argument to GetProcInfo.
        Add Subprocesses method.
+ 1.000 Add assert_debug_priv hash argument to the 'new' method.
+       Fix documentation, both pod errors and actual doc bugs.
+       When the only thing you've done in two months is add a semicolon
+           to a comment, it's probably time to call it production code.
+
 =head1 RESTRICTIONS
 
 You can not "require" this library except in a BEGIN block. This is a

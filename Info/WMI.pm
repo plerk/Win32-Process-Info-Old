@@ -127,12 +127,22 @@ The following methods should be considered public:
 #
 # 0.014	27-Jun-2003	T. R. Wyant
 #		Released.
+#
+# 0.014_01 25-Jul-2003	T. R. Wyant
+#		Added hash argument assert_debug_priv to 'new' method.
+#			This overrides the environment variable.
+#
+# 1.000 09-Oct-2003	T. R. Wyant
+#		When the only thing you've fixed in the last two months
+#			is the docs, it's time to call it production
+#			code. And if _that_ statement doesn't flush
+#			out more problems, nothing will.
 
 package Win32::Process::Info::WMI;
 
 use base qw{Win32::Process::Info};
 use vars qw{$VERSION};
-$VERSION = 0.014;
+$VERSION = 1.000;
 
 use strict;
 use vars qw{%mutator};
@@ -157,7 +167,7 @@ my $assert_debug_priv = $ENV{PERL_WIN32_PROCESS_INFO_WMI_DEBUG};
 
 my $wmi_const;
 
-my %lglarg = map {($_, 1)} qw{host variant user password};
+my %lglarg = map {($_, 1)} qw{assert_debug_priv host password user variant};
 
 sub new {
 my $class = shift;
@@ -172,6 +182,7 @@ my $mach = $arg->{host} || '';
 $mach =~ s|^[\\/]+||;
 my $user = $arg->{user} || '';
 my $pass = $arg->{password} || '';
+$arg->{assert_debug_priv} ||= $assert_debug_priv;
 
 my $old_warn = Win32::OLE->Option ('Warn');
 Win32::OLE->Option (Warn => 0);
@@ -204,7 +215,7 @@ if ($user) {
     $locator->{Security_}{ImpersonationLevel} =
 	$wmi_const->{wbemImpersonationLevelImpersonate};
     $locator->{Security_}{Privileges}->Add ($wmi_const->{wbemPrivilegeDebug})
-	if $assert_debug_priv;
+	if $arg->{assert_debug_priv};
 
     $wmi = $locator->ConnectServer (
 	$mach,				# Server
@@ -220,7 +231,7 @@ if ($user) {
     my $mm = $mach || '.';
     $wmi = Win32::OLE->GetObject (
 	"winmgmts:{impersonationLevel=impersonate@{[
-		$assert_debug_priv ? ',(Debug)' : '']}}!//$mm/root/cimv2");
+		$arg->{assert_debug_priv} ? ',(Debug)' : '']}}!//$mm/root/cimv2");
     }
 
 $wmi or do {

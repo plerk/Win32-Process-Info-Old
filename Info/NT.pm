@@ -124,12 +124,23 @@ return undef;
 #
 # 0.014	27-Jun-2003	T. R. Wyant
 #		Released.
+#
+# 0.014_01 25-Jul-2003	T. R. Wyant
+#		Added hash argument assert_debug_priv to 'new' method.
+#			It's ignored, though, since this variant
+#			always asserts debug.
+#
+# 1.000 09-Oct-2003	T. R. Wyant
+#		When the only thing you've fixed in the last two months
+#			is the docs, it's time to call it production
+#			code. And if _that_ statement doesn't flush
+#			out more problems, nothing will.
 
 package Win32::Process::Info::NT;
 
 use base qw{Win32::Process::Info};
 use vars qw{$VERSION};
-$VERSION = 0.014;
+$VERSION = 1.000;
 
 use vars qw {
     $AdjustTokenPrivileges
@@ -187,7 +198,7 @@ return Win32::API->new (@_) ||
     Win32::Process::Info::DummyRoutine->new ();
 }
 
-my %lglarg = map {($_, 1)} qw{variant};
+my %lglarg = map {($_, 1)} qw{assert_debug_priv variant};
 
 sub new {
 my $class = shift;

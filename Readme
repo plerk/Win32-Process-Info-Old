@@ -1,4 +1,4 @@
-Win32::Process::Info version 0.014
+Win32::Process::Info version 1.000
 
 This module is intended to partly plug a perceived gap in Perl's Win32
 functionality: the inability to traverse all (or nearly all) the processes
