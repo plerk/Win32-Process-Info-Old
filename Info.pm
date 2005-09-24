@@ -152,10 +152,12 @@ The following methods should be considered public:
 #		stop token handle leak.
 #		Turned off $^W for timelocal call, since it throws
 #		random warnings otherwise.
+# 1.006 23-Sep-2005 T. R. Wyant
+#		Skip non-existent processes in the Subprocesses method.
 
 package Win32::Process::Info;
 
-$VERSION = 1.005;
+$VERSION = 1.006;
 
 use strict;
 use vars qw{%mutator %static};
@@ -519,6 +521,7 @@ if (@_) {
     $rslt = \%listed;
     while (@_) {
 	my $pid = shift;
+    next unless $subs{$pid};	# TRW 1.006
 	next if $listed{$pid};
 	$listed{$pid} = $subs{$pid};
 	push @_, @{$subs{$pid}};
@@ -700,6 +703,9 @@ included with ActivePerl. Your mileage may vary.
        counts is Win32, but ActiveState's PPM3 chokes on
        this, or at least did as of January 2001.
  1.005 Addressed token handle leak in the NT variant.
+ 1.006 Silently skip non-existent processes in the Subprocesses
+       method. Fix provided by Kirk Baucom of Itron, and accepted
+       with thanks.
 
 =head1 BUGS
 
