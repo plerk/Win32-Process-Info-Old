@@ -5,10 +5,11 @@ my $vers = $] >= 5.008 ? '-5.8' : '';
 
 WriteMakefile (
 	NAME => 'Win32::Process::Info',
-	VERSION_FROM => 'Info.pm',
+	VERSION_FROM => 'lib/Win32/Process/Info.pm',
 	PREREQ_PM => {
 			},
 #	'linkext' => {LINKTYPE => ''},
+	PL_FILES => {},	# Prevent old MakeMaker from running Build.PL
 	'dist' => {COMPRESS => 'gzip', SUFFIX => 'gz'},
 	$] >= 5.005 ? (
 		AUTHOR => 'Tom Wyant (wyant at cpan dot org)',

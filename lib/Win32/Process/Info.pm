@@ -11,18 +11,36 @@ Win32::Process::Info - Provide process information for Windows 32 systems.
  @info = $pi->GetProcInfo ();	# Get the max
  %subs = $pi->Subprocesses ();	# Figure out subprocess relationships.
 
-CAVEAT USER:
+=head1 NOTICE
 
 This package covers a multitude of sins - as many as Microsoft has
 invented ways to get process info and I have resources and gumption
 to code. The key to this mess is the 'variant' argument to the 'new'
 method (q.v.).
 
+The WMI variant has various problems, known or suspected to be inherited
+from Win32::OLE. See L</BUGS> for the gory details. The worst of these
+is that if you use fork(), you B<must> disallow WMI completely by
+loading this module as follows:
+
+ use Win32::Process::Info qw{NT};
+
+This method of controlling things must be considered experimental until
+I can confirm it causes no unexpected insurmountable problems. If I am
+forced to change it, the change will be flagged prominently in the
+documentation.
+
+This change is somewhat incompatible with 1.006 and earlier because it
+requires the import() method to be called in the correct place with the
+correct arguments. See the import() documentation below for the details.
+
+B<YOU HAVE BEEN WARNED!>.
+
 =head1 DESCRIPTION
 
 The main purpose of the Win32::Process::Info package is to get whatever
 information is convenient (for the author!) about one or more Windows
-32 processes. GetProcInfo (which see) is therefore the most-important
+32 processes. L</GetProcInfo> is therefore the most-important
 method in the package. See it for more information.
 
 Unless explicitly stated otherwise, modules, variables, and so
@@ -154,10 +172,13 @@ The following methods should be considered public:
 #		random warnings otherwise.
 # 1.006 23-Sep-2005 T. R. Wyant
 #		Skip non-existent processes in the Subprocesses method.
+# 1.007 10-Jan-2007	T. R. Wyant
+#		Use the import() hook to determine which variants may
+#		be used in the script.
 
 package Win32::Process::Info;
 
-$VERSION = 1.006;
+$VERSION = '1.007';
 
 use strict;
 use vars qw{%mutator %static};
@@ -181,6 +202,11 @@ use UNIVERSAL qw{isa};
 #	ticularly true of WMI, where the full check is rather elephan-
 #	tine.
 #
+#	The actual 'necessary but not required' check has moved to
+#	{check_support}, with {unsupported} simply holding the result of
+#	the check. The {check_support} key is code to be executed when
+#	the import() hook is called when the module is loaded.
+#
 #	While I was at it, I decided to consolidate all the variant-
 #	specific information in one spot and, while I was at it, write
 #	a variant checker utility.
@@ -189,13 +215,9 @@ my %variant_support;
 BEGIN {
 %variant_support = (
     NT => {
-	make => sub {
-		require Win32::Process::Info::NT;
-		Win32::Process::Info::NT->new (@_);
-		},
-	unsupported => eval {
+	check_support => sub {
 		return "Your OS is not a member of the Windows NT family"
-		    unless Win32::IsWinNT ();
+		    unless Win32->can ('IsWinNT') && Win32::IsWinNT ();
 		return "I can not find Win32::API"
 		    unless require Win32::API;
 		my @path = split ';', $ENV{Path};
@@ -207,24 +229,34 @@ DLL_LOOP:
 		    return "I can not find $dll";
 		    }
 		return 0;
-		} || $@,
+		},
+	make => sub {
+		require Win32::Process::Info::NT;
+		Win32::Process::Info::NT->new (@_);
+		},
+	unsupported => "Disallowed on load of @{[__PACKAGE__]}.",
 	},
     WMI => {
+	check_support => sub {
+		return "Unable to load Win32::OLE"
+		    unless eval {require Win32::OLE};
+		return 0;
+		},
 	make => sub {
 		require Win32::Process::Info::WMI;
 		Win32::Process::Info::WMI->new (@_);
 		},
-	unsupported => eval {
-		return "I can not find Win32::OLE"
-		    unless require Win32::OLE;
-		return 0;
-		},
+	unsupported => "Disallowed on load of @{[__PACKAGE__]}.",
 	},
     );
 }
 sub _check_variant {
 croak "Error - Variant '$_[0]' is unknown."
     unless exists $variant_support{$_[0]};
+exists $variant_support{$_[0]}{unsupported} or croak <<eod;
+Error - Variant '$_[0]' support status is unknown. This can happen if
+        you 'use Win32::Process::Info ();'. Please do not do that.
+eod
 croak "Error - Variant '$_[0]' is unsupported on your configuration. $variant_support{$_[0]}{unsupported}"
     if $variant_support{$_[0]}{unsupported};
 return 1;
@@ -433,7 +465,8 @@ in the system.
 =cut
 
 sub ListPids {
-croak "Error - Whoever coded this forgot to override ListPids.";
+   confess
+   "Error - Whoever coded this forgot to override ListPids.";
 }
 
 =item @info = $pi->GetProcInfo ();
@@ -475,8 +508,113 @@ to a hash of option values. The only supported key is:
 =cut
 
 sub GetProcInfo {
-croak "Error - Whoever coded this forgot to override GetProcInfo.";
+    confess
+    "Programming Error - Whoever coded this forgot to override GetProcInfo.";
 }
+
+=item Win32::Process::Info->import ()
+
+The purpose of this static method is to specify which variants of the
+functionality are legal to use. Possible arguments are 'NT', 'WMI', or
+both (i.e. ('NT', 'WMI')). Unrecognized arguments are ignored, though
+this may change if this class becomes a subclass of Exporter. If called
+with no arguments, it is as though it were called with arguments ('NT',
+'WMI'). See L</BUGS>, below, for why this mess was introduced in the
+first place.
+
+This method must be called at least once, B<in a BEGIN block>, or B<no>
+variants will be legal to use. Usually it does B<not> need to be
+explicitly called by the user, since it is called implicitly when you
+'use Win32::Process::Info;'.
+
+If this method is called more than once, the second and subsequent calls
+will have no effect on what variants are available. The reason for this
+is will be made clear (I hope!) under L</USE IN OTHER MODULES>, below.
+
+The only time a user of this module needs to do anything different
+versus version 1.006 and previous of this module is if this module is
+being loaded in such a way that this method is not implicitly called.
+This can happen two ways:
+
+ use Win32::Process::Info ();
+
+explicitly bypasses the implicit call of this method. Don't do that.
+
+ require Win32::Process::Info;
+
+also does not call this method. If you must load this module using
+require rather than use, follow the require with
+
+ Win32::Process::Info->import ();
+
+passing any necessary arguments.
+
+The only time a normal user will be
+
+The purpose of this method is to be specify which
+
+This static method should B<not> normally be called by the user. Its
+purpose is to implement variant restriction on 'use
+Win32::Process::Info'. This works like so:
+
+ use Win32::Process::Info;
+
+allows any variant to be used. It is equivalent to
+
+ use Win32::Process::Info qw{WMI NT};
+
+On the other hand,
+
+ use Win32::Process::Info qw{NT};
+
+allows only the NT variant to be used, which currently is a requirement
+if you wish to fork() (see L</BUGS>).
+
+ use Win32::Process::Info ();
+
+leaves any  and all variants disallowed, because this method is not
+called. You would want to do something like this if you were
+subclassing. See L</NOTICE> above for the details.
+
+This method only has effect the first time it is called. Subsequent
+calls are silently ignored. So
+
+ use Win32::Process::Info qw{NT};
+ use Win32::Process::Info wq{WMI};
+
+leaves only the NT variant allowed.
+
+=cut
+
+{	# Begin local symbol block.
+
+    my $idempotent;
+
+    sub import {
+	my $pkg = shift;
+	my (@args, @vars);
+	foreach (@_) {
+	    if (exists $variant_support{$_}) {
+		push @vars, $_;
+	    } else {
+		push @args, $_;
+	    }
+	}
+	# Note that if we ever become a subclass of Exporter
+	# we will have to call __PACKAGE__->SUPER::import (@args);
+	if ($idempotent++) {
+	    # Warning here maybe?
+	} else {
+	    @vars or push @vars, keys %variant_support;
+	    foreach my $try (@vars) {
+		$variant_support{$try} or next;
+		$variant_support{$try}{unsupported} = eval {
+		    $variant_support{$try}{check_support}->()} || $@;
+	    }
+	}
+    }
+
+}	# End local symbol block.
 
 =item %subs = $pi->Subprocesses ([pid ...])
 
@@ -541,6 +679,18 @@ sub Version {
 return $Win32::Process::Info::VERSION;
 }
 
+#	$result = $self->_available (variant)
+#	is a debugging tool that returns the content of {unsupported}
+#	for the given variant. If the variant does not exist, you get
+#	undef.
+
+sub _available {
+    my $pkg = shift;
+    my $var = shift;
+    $variant_support{$var} ?
+	$variant_support{$var}{unsupported} :
+	undef; 
+}
 
 #
 #	$self->_build_hash ([hashref], key, value ...)
@@ -609,6 +759,49 @@ __END__
 
 =back
 
+=head1 USE IN OTHER MODULES
+
+Other modules that use this module are also subject to the effects of
+the collision between Win32::OLE and the emulated fork call, and to the
+requirements of the import() method. I will not address subclassing,
+since I am not sure how well this module subclasses (the variants are
+implemented as subclasses of this module).
+
+Modules that simply make use of this module (the 'has-a' relationship)
+should work as before, B<provided> they 'use Win32::Process::Info'. Note
+that the phrase 'as before' is literal, and means (among other things),
+that you can't use the emulated fork. Modules that 'require
+Win32::Process::Info' should call its import() method explicitly, as
+should modules that want to allow the emulated fork.
+
+The easiest way to do this is probably something like
+
+ use Win32::Process::Info ();
+ 
+ sub import {
+    my $pkg = shift;
+    $pkg->SUPER::import (@_);  # Optional (see below)
+    Win32::Process::Info->import (@_);
+ }
+
+The call to $pkg->SUPER::import is needed only if your package is a
+subclass of Exporter.
+
+Note to users of modules that require this module:
+
+If the above 'rules' are violated, the symptoms will be either that you
+cannot instantiate an object (because there are no legal variants) or
+that you cannot use fork (because the WMI variant was enabled by
+default). The workaround for you is to
+
+ use Win32::Process::Info;
+
+before you 'use' the problematic module. If the problem is coexistence
+with fork, you will of course need to
+
+ use Win32::Process::Info qw{NT};
+
+
 =head1 ENVIRONMENT
 
 This package is sensitive to a number of environment variables.
@@ -618,7 +811,7 @@ is initialized (i.e. when it's "used" or "required").
 PERL_WIN32_PROCESS_INFO_VARIANT
 
 If present, specifies which variant(s) are tried, in which
-order. The default behaviour is equivalent to specifying
+order. The default behavior is equivalent to specifying
 'WMI,NT'. This environment variable is consulted when you
 "use Win32::Process::Info;". If you want to change it in
 your Perl code you should use the static Set () method.
@@ -629,7 +822,7 @@ If present and containing a value Perl recognizes as true,
 causes the WMI variant to assert the "Debug" privilege.
 This has the advantage of returning more full paths, but
 the disadvantage of tending to cause Perl to die when
-trying to get the owner information on the newly-accessable
+trying to get the owner information on the newly-accessible
 processes.
 
 PERL_WIN32_PROCESS_INFO_WMI_PARIAH
@@ -688,7 +881,7 @@ included with ActivePerl. Your mileage may vary.
        but PPM3 chokes on it, and I figure anyone who IS using
        PPM3 already has it, and anyone who ISN'T is smart enough
        to figure out what's going on - or at least read the Readme.
- 1.002 Document leaky behaviour of WMI variant, and try to make it
+ 1.002 Document leaky behavior of WMI variant, and try to make it
        leak less. Document related modules.
  1.003 Documented PERL_WIN32_PROCESS_INFO_WMI_DEBUG correctly
        (the docs had a _PRIV on the end).
@@ -706,6 +899,11 @@ included with ActivePerl. Your mileage may vary.
  1.006 Silently skip non-existent processes in the Subprocesses
        method. Fix provided by Kirk Baucom of Itron, and accepted
        with thanks.
+ 1.007 Provide method to disallow a given variant when the package is
+       loaded. This prevents the normal testing, which causes problems
+       if fork() is used. Thanks to Malcolm Nooning for finding the
+       problem, helping me work out the solution, and sharing the
+       results of his correspondence with ActiveState.
 
 =head1 BUGS
 
@@ -716,11 +914,31 @@ is recommended. If you're stuck with WMI, set the no_user_info flag
 when you call GetProcInfo. This won't stop the leaks, but it minimizes
 them, at the cost of not returning the username or SID.
 
+If you intend to use fork (), your script will die horribly unless you
+load this module as
+
+ use Win32::Process::Info qw{NT};
+
+The problem is that fork() and Win32::OLE (used by the WMI variant) do
+not play B<at all> nicely together. This appears to be an acknowledged
+problem with Win32::OLE, which is brought on simply by loading the
+module. See import() above for the consequences of handling things this
+way.
+
+Bugs can be reported to the author by mail, or through
+L<http://rt.cpan.org>.
+
 =head1 RESTRICTIONS
 
 You can not "require" this library except in a BEGIN block. This is a
 consequence of the use of Win32::API, which has the same restriction,
 at least in some versions.
+
+If your code calls fork (), you must load this module as
+
+ use Win32::Process::Info qw{NT};
+
+This renders the WMI variant unavailable. See L</BUGS>.
 
 =head1 RELATED MODULES
 
@@ -787,12 +1005,14 @@ Thomas R. Wyant, III (F<wyant at cpan dot org>)
 
 =head1 COPYRIGHT
 
-Copyright 2001, 2002, 2003, 2004, 2005 by
-E. I. DuPont de Nemours and Company, Inc.
-All rights reserved.
+Copyright 2001, 2002, 2003, 2004, 2005 by E. I. DuPont de Nemours and
+Company, Inc.  All rights reserved.
 
-This module is free software; you can use it, redistribute it
-and/or modify it under the same terms as Perl itself.
+Modifications since version 1.006 copyright 2007 by Thomas R. Wyant,
+III. All rights reserved.
+
+This module is free software; you can use it, redistribute it and/or
+modify it under the same terms as Perl itself.
 
 =cut
 

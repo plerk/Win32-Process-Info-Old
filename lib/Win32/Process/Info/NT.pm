@@ -93,7 +93,7 @@ return undef;
 #	21-Nov-2002	T. R. Wyant
 #		Set SeDebugPrivilege on instantiation.
 #		Replace "sub" manifest constants with "use constant".
-#		Retry OpenProcess in (apparantly futile) attempt to
+#		Retry OpenProcess in (apparently futile) attempt to
 #			get at lest _some_ information when it's
 #			not all available.
 #		GetProcInfo now returns all PIDs requested, even if
@@ -274,7 +274,7 @@ Note that:
 - The I/O statistic keys will only be present on Windows 2000.
 
 - The MinimumWorkingSetSize and MaximumWorkingSetSize keys have
-no apparant relationship to the amount of memory actually
+no apparent relationship to the amount of memory actually
 consumed by the process.
 
 The output will contain all processes for which information was

@@ -1,9 +1,14 @@
+Build.PL
+Changes
+eg/ProcessInfo.pl
+eg/README
+lib/Win32/Process/Info.pm
+lib/Win32/Process/Info/NT.pm
+lib/Win32/Process/Info/WMI.pm
 Makefile.PL
-ProcessInfo.pl
-Info/NT.pm
-Info/WMI.pm
-Info.pm
-MANIFEST
-Readme
+MANIFEST			This list of files
+META.yml
+README
 t/basic.t
-META.yml                                 Module meta-data (added by MakeMaker)
+t/pod.t
+t/pod_coverage.t

@@ -506,7 +506,7 @@ This library uses the following libraries:
   use Win32::OLE::Variant;
 
 As of ActivePerl 630, none of the variant libraries use any libraries
-that are not included with ActivePerl. Your milage may vary.
+that are not included with ActivePerl. Your mileage may vary.
 
 =head1 ACKNOWLEDGMENTS
 
