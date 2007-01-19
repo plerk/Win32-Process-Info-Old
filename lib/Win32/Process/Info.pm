@@ -34,7 +34,7 @@ This change is somewhat incompatible with 1.006 and earlier because it
 requires the import() method to be called in the correct place with the
 correct arguments. See the import() documentation below for the details.
 
-B<YOU HAVE BEEN WARNED!>.
+B<YOU HAVE BEEN WARNED!>
 
 =head1 DESCRIPTION
 
@@ -178,7 +178,7 @@ The following methods should be considered public:
 
 package Win32::Process::Info;
 
-$VERSION = '1.007';
+$VERSION = '1.008';
 
 use strict;
 use vars qw{%mutator %static};
@@ -549,41 +549,6 @@ require rather than use, follow the require with
 
 passing any necessary arguments.
 
-The only time a normal user will be
-
-The purpose of this method is to be specify which
-
-This static method should B<not> normally be called by the user. Its
-purpose is to implement variant restriction on 'use
-Win32::Process::Info'. This works like so:
-
- use Win32::Process::Info;
-
-allows any variant to be used. It is equivalent to
-
- use Win32::Process::Info qw{WMI NT};
-
-On the other hand,
-
- use Win32::Process::Info qw{NT};
-
-allows only the NT variant to be used, which currently is a requirement
-if you wish to fork() (see L</BUGS>).
-
- use Win32::Process::Info ();
-
-leaves any  and all variants disallowed, because this method is not
-called. You would want to do something like this if you were
-subclassing. See L</NOTICE> above for the details.
-
-This method only has effect the first time it is called. Subsequent
-calls are silently ignored. So
-
- use Win32::Process::Info qw{NT};
- use Win32::Process::Info wq{WMI};
-
-leaves only the NT variant allowed.
-
 =cut
 
 {	# Begin local symbol block.
@@ -770,11 +735,19 @@ implemented as subclasses of this module).
 Modules that simply make use of this module (the 'has-a' relationship)
 should work as before, B<provided> they 'use Win32::Process::Info'. Note
 that the phrase 'as before' is literal, and means (among other things),
-that you can't use the emulated fork. Modules that 'require
-Win32::Process::Info' should call its import() method explicitly, as
-should modules that want to allow the emulated fork.
+that you can't use the emulated fork.
 
-The easiest way to do this is probably something like
+If you as the author of a module that uses Win32::Process::Info wish to
+allow emulated forks, you have a number of options.
+
+The easiest way to go is
+
+ use Win32::Process::Info qw{NT};
+
+if this provides enough information for your module.
+
+If you would prefer the extra information provided by WMI but can
+operate in a degraded mode if needed, you can do something like
 
  use Win32::Process::Info ();
  
@@ -801,6 +774,7 @@ with fork, you will of course need to
 
  use Win32::Process::Info qw{NT};
 
+This is why only the first import() sets the possible variants.
 
 =head1 ENVIRONMENT
 
@@ -846,7 +820,8 @@ This library uses the following libraries:
  Win32::ODBC (if using the WMI variant)
 
 As of ActivePerl 630, none of this uses any packages that are not
-included with ActivePerl. Your mileage may vary.
+included with ActivePerl. Carp and Time::Local have been in the core
+since at least 5.004. Your mileage may, of course, vary.
 
 =head1 HISTORY
 
@@ -896,14 +871,22 @@ included with ActivePerl. Your mileage may vary.
        counts is Win32, but ActiveState's PPM3 chokes on
        this, or at least did as of January 2001.
  1.005 Addressed token handle leak in the NT variant.
- 1.006 Silently skip non-existent processes in the Subprocesses
-       method. Fix provided by Kirk Baucom of Itron, and accepted
-       with thanks.
- 1.007 Provide method to disallow a given variant when the package is
-       loaded. This prevents the normal testing, which causes problems
-       if fork() is used. Thanks to Malcolm Nooning for finding the
-       problem, helping me work out the solution, and sharing the
-       results of his correspondence with ActiveState.
+ 1.006 Silently skip non-existent processes in the
+       Subprocesses method. Fix provided by Kirk Baucom of
+       Itron, and accepted with thanks.
+ 1.007 Provide method to disallow a given variant when the
+       package is loaded. This prevents the normal testing,
+       which causes problems if fork() is used. Thanks to Malcolm
+       Nooning for finding the problem, helping me work out
+       the solution, and sharing the results of his
+       correspondence with ActiveState.
+ 1.008 Clean up the documentation. The new import()
+       documentation, in particular, contained a couple
+       abortive attempts to get it right. But the real
+       incentive is that the Windows build on ActiveState
+       failed because the Makefile was older than
+       Makefile.PL (?!?), so I thought I would try sending
+       it through again.
 
 =head1 BUGS
 
