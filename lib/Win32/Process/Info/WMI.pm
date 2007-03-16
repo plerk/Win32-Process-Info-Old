@@ -8,7 +8,7 @@ This package fetches process information on a given Windows
 machine, using Microsoft's Windows Management Implementation.
 
  use Win32::Process::Info
- $pi = Win32::Process::Info->new ([machine], 'WMI');
+ $pi = Win32::Process::Info->new (undef, 'WMI');
  $pi->Set (elapsed_as_seconds => 0);	# In clunks, not seconds.
  @pids = $pi->ListPids ();	# Get all known PIDs
  @info = $pi->GetProcInfo ();	# Get the max
@@ -147,12 +147,14 @@ The following methods should be considered public:
 #		were allocated whether or not they were used. But this
 #		version doesn't allocate them unless they are to be
 #		used.
+# 1.001_02 01-Mar-2007	T. R. Wyant
+#		Fix code in synopsis.
 
 package Win32::Process::Info::WMI;
 
 use base qw{Win32::Process::Info};
 use vars qw{$VERSION};
-$VERSION = 1.001_01;
+$VERSION = '1.002';
 
 use strict;
 use vars qw{%mutator};

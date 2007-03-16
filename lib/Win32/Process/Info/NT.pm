@@ -13,7 +13,7 @@ machine, using Microsoft Windows NT's native process
 information calls.
 
  use Win32::Process::Info
- $pi = Win32::Process::Info->new ([machine], 'NT');
+ $pi = Win32::Process::Info->new (undef, 'NT');
  $pi->Set (elapsed_as_seconds => 0);	# In clunks, not seconds.
  @pids = $pi->ListPids ();	# Get all known PIDs
  @info = $pi->GetProcInfo ();	# Get the max
@@ -142,12 +142,15 @@ return undef;
 #		don't need to do it but once for the process (not once
 #		per instantiation of the object), and we don't leak
 #		token handles this way.
+# 1.005_01 08-Mar-2007	T. R. Wyant
+#		Fix code in synopsis.
+#		Remove reference to 'use_wmi_names' in documentation.
 
 package Win32::Process::Info::NT;
 
 use base qw{Win32::Process::Info};
 use vars qw{$VERSION};
-$VERSION = 1.005;
+$VERSION = '1.006';
 
 use vars qw {
     $AdjustTokenPrivileges
@@ -245,9 +248,8 @@ list of process IDs, and get out a list of the attributes of
 all such processes that actually exist. If you call this
 method in scalar context, you get a reference to the list.
 
-What keys are available depend both on the variant in use and the
-setting of b<use_wmi_names>. Assuming B<use_wmi_names> is TRUE,
-you can hope to get at least the following keys for a "normal"
+What keys are available depend on the variant in use. With the NT
+variant you can hope to get at least the following keys for a "normal"
 process (i.e. not the idle process, which is PID 0, nor the system,
 which is _usually_ PID 8) to which you have access:
 

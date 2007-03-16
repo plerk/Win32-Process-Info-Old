@@ -5,7 +5,7 @@ Win32::Process::Info - Provide process information for Windows 32 systems.
 =head1 SYNOPSIS
 
  use Win32::Process::Info;
- $pi = Win32::Process::Info->new ([machine], [variant]);
+ $pi = Win32::Process::Info->new ();
  $pi->Set (elapsed_as_seconds => 0);	# In clunks, not seconds.
  @pids = $pi->ListPids ();	# Get all known PIDs
  @info = $pi->GetProcInfo ();	# Get the max
@@ -175,10 +175,15 @@ The following methods should be considered public:
 # 1.007 10-Jan-2007	T. R. Wyant
 #		Use the import() hook to determine which variants may
 #		be used in the script.
+# 1.008 17-Jan-2007	T. R. Wyant
+#		Clean up docs
+# 1.008_01 08-Mar-2007	T. R. Wyant
+#		Fix synopsis code so it compiles as-is.
+#		Correct error message when new() gets invalid reference.
 
 package Win32::Process::Info;
 
-$VERSION = '1.008';
+$VERSION = '1.009';
 
 use strict;
 use vars qw{%mutator %static};
@@ -335,7 +340,7 @@ foreach my $inp (@_) {
 	foreach my $key (keys %$inp) {$arg{$key} = $inp->{$key}}
 	}
       elsif (ref $inp) {
-	croak "Error - Argument may not be ${[ref $inp]} reference.";
+	croak "Error - Argument may not be @{[ref $inp]} reference.";
 	}
       elsif ($argnam[$inx]) {
 	$arg{$argnam[$inx]} = $inp;
@@ -887,6 +892,9 @@ since at least 5.004. Your mileage may, of course, vary.
        failed because the Makefile was older than
        Makefile.PL (?!?), so I thought I would try sending
        it through again.
+ 1.009 Fix synopsis code so that it compiles as-is.
+       Correct the error message generated when new() is
+       passed a reference other than a hash reference.
 
 =head1 BUGS
 
