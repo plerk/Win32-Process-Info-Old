@@ -6,10 +6,12 @@ Win32::Process::Info - Provide process information for Windows 32 systems.
 
  use Win32::Process::Info;
  $pi = Win32::Process::Info->new ();
- $pi->Set (elapsed_as_seconds => 0);	# In clunks, not seconds.
+ $pi->Set (elapsed_in_seconds => 0);	# In clunks, not seconds.
  @pids = $pi->ListPids ();	# Get all known PIDs
  @info = $pi->GetProcInfo ();	# Get the max
  %subs = $pi->Subprocesses ();	# Figure out subprocess relationships.
+ @info = grep {$_->{Name} =~ m/perl/}
+    $pi->GetProcInfo ();        # All processes with 'perl' in name.
 
 =head1 NOTICE
 
@@ -180,10 +182,16 @@ The following methods should be considered public:
 # 1.008_01 08-Mar-2007	T. R. Wyant
 #		Fix synopsis code so it compiles as-is.
 #		Correct error message when new() gets invalid reference.
+# 1.009	16-Mar-2007 T. R. Wyant
+#		Released above changes.
+# 1.010 22-Aug-2007 T. R. Wyant
+#		Changed elapsed_as_seconds to elapsed_in_seconds in
+#		synopsis code. Also added 'grep' example.
+#		Added PT variant, mainly for testing.
 
 package Win32::Process::Info;
 
-$VERSION = '1.009';
+$VERSION = '1.010';
 
 use strict;
 use vars qw{%mutator %static};
@@ -241,6 +249,18 @@ DLL_LOOP:
 		},
 	unsupported => "Disallowed on load of @{[__PACKAGE__]}.",
 	},
+    PT => {
+	check_support => sub {
+		return "Unable to load Proc::ProcessTable"
+		    unless eval {require Proc::ProcessTable};
+		return 0;
+		},
+	make => sub {
+		require Win32::Process::Info::PT;
+		Win32::Process::Info::PT->new (@_);
+		},
+	unsupported => "Disallowed on load of @{[__PACKAGE__]}.",
+	},
     WMI => {
 	check_support => sub {
 		return "Unable to load Win32::OLE"
@@ -291,14 +311,22 @@ Windows 2000. This variant does not support connecting to
 another machine, so the 'machine' argument must be an
 empty string (or undef, if you prefer).
 
+PT - Uses Dan Urist's Proc::ProcessTable, making it possible
+(paradoxically) to use this module on other operating systems than
+Windows. Only those Proc::ProcessTable::Process fields which seem
+to correspond to WMI items are returned. B<Caveat:> the PT variant
+is to be considered experimental, and may be changed or retracted
+in future releases.
+
 WMI - Uses the Windows Management Implementation. Good on Win2K, ME,
 and possibly others, depending on their vintage and whether
 WMI has been retrofitted.
 
 The initial default variant comes from environment variable
 PERL_WIN32_PROCESS_INFO_VARIANT. If this is not found, it will be
-'WMI,NT', which means to try WMI first, and NT if WMI fails. This can
-be changed using Win32::Process::Info->Set (variant => whatever).
+'WMI,NT,PT', which means to try WMI first, NT if WMI fails, and PT as a
+last resort. This can be changed using Win32::Process::Info->Set
+(variant => whatever).
 
 The hash argument is a hash reference to additional arguments, if
 any. The hash reference can actually appear anywhere in the argument
@@ -352,7 +380,7 @@ foreach my $inp (@_) {
     }
 
 my $mach = $arg{host} or delete $arg{host};
-my $try = $arg{variant} || $static{variant} || 'WMI,NT';
+my $try = $arg{variant} || $static{variant} || 'WMI,NT,PT';
 foreach $variant (grep {$_} split '\W+', $try) {
     eval {
 	_check_variant ($variant);
@@ -605,6 +633,7 @@ support this. If the variant you're using doesn't support this
 attribute, you get back an empty hash. Specifically:
 
  NT -> unsupported
+ PT -> supported
  WMI -> supported
 
 =cut
@@ -820,6 +849,7 @@ This library uses the following libraries:
 
  Carp
  Time::Local
+ Proc::ProcessTable (if using the PT variant)
  Win32::API (if using the NT-native variant)
  Win32API::Registry (if using the NT-native variant)
  Win32::ODBC (if using the WMI variant)
@@ -895,6 +925,11 @@ since at least 5.004. Your mileage may, of course, vary.
  1.009 Fix synopsis code so that it compiles as-is.
        Correct the error message generated when new() is
        passed a reference other than a hash reference.
+ 1.010 Replace 'elapsed_as_seconds' with 'elapsed_in_seconds'
+       in synopsis code. Also add 'grep' example. Thanks to David
+       Wagner and Derek Smith respectively for pointing out the
+       need for these.
+       Add and document variant 'PT'.
 
 =head1 BUGS
 
@@ -915,6 +950,12 @@ not play B<at all> nicely together. This appears to be an acknowledged
 problem with Win32::OLE, which is brought on simply by loading the
 module. See import() above for the consequences of handling things this
 way.
+
+The use of the NT and WMI variants under non-windows systems is
+unsupported. ReactOS 0.3.3 is known to lock up when GetProcInfo() is
+called; since this  works on the Microsoft OSes, I am inclined to
+attribute this to the acknowledged alpha-ness of ReactOS. I have no idea
+what happens under Wine. B<Caveat user.>
 
 Bugs can be reported to the author by mail, or through
 L<http://rt.cpan.org>.
@@ -938,6 +979,12 @@ If this module doesn't do what you want, maybe one of the following
 ones will.
 
 =over 4
+
+=item Proc::ProcessTable by Dan Urist
+
+This module does not as of this writing support Windows, though there
+is a minimal Cygwin version that might serve as a starting point. The
+'PT' variant makes use of this module.
 
 =item Win32::PerfLib by Jutta M. Klebe
 
@@ -1002,8 +1049,11 @@ Company, Inc.  All rights reserved.
 Modifications since version 1.006 copyright 2007 by Thomas R. Wyant,
 III. All rights reserved.
 
-This module is free software; you can use it, redistribute it and/or
-modify it under the same terms as Perl itself.
+=head1 LICENSE
+
+This module is free software; you can use it, redistribute it
+and/or modify it under the same terms as Perl itself. Please see
+L<http://perldoc.perl.org/index-licence.html> for the current licenses.
 
 =cut
 

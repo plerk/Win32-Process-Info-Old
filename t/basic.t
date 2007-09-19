@@ -1,38 +1,43 @@
-#!/usr/bin/perl -w
-
 use strict;
 
 use File::Spec;
 use Test;
-use Win32;
-use Win32::OLE;
 
-my $old_warn = Win32::OLE->Option ('Warn');	# Sure wish I could localize this baby.
-Win32::OLE->Option (Warn => 0);
-my $wmi = Win32::OLE->GetObject ('winmgmts:{impersonationLevel=impersonate,(Debug)}!//./root/cimv2');
-my $proc = $wmi->Get ("Win32_Process='$$'") if $wmi;
-$wmi = undef unless $wmi && $proc;
-Win32::OLE->Option (Warn => $old_warn);
+my ($proc, $wmi);
+my $nt_skip;
+BEGIN {
+    $nt_skip = 'NT-Family OS required.';
+    eval {
+	require Win32;
+
+	if (eval {require Win32::OLE; 1}) {
+	    my $old_warn = Win32::OLE->Option ('Warn');	# Sure wish I could localize this baby.
+	    Win32::OLE->Option (Warn => 0);
+	    $wmi = Win32::OLE->GetObject ('winmgmts:{impersonationLevel=impersonate,(Debug)}!//./root/cimv2');
+	    $proc = $wmi->Get ("Win32_Process='$$'") if $wmi;
+	    $wmi = undef unless $wmi && $proc;
+	    Win32::OLE->Option (Warn => $old_warn);
+	}
 
 #	Figure out whether we support the NT variant.
 
-my $nt_skip;
-BEGIN {
-$nt_skip = Win32::IsWinNT () ? eval {require Win32::API} ? 0 :
-    "Skip Win32::API not installed." :
-    "Skip Windows NT-family OS required.";
-}
-my @path = split ';', $ENV{Path};
-unless ($nt_skip) {
-DLL_LOOP:
-    foreach my $dll (qw{PSAPI.DLL ADVAPI32.DLL KERNEL32.DLL}) {
-	foreach my $loc (@path) {
-	    next DLL_LOOP if -e File::Spec->catfile ($loc, $dll);
+	$nt_skip = Win32::IsWinNT () ? eval {require Win32::API} ? 0 :
+	    "Skip Win32::API not installed." :
+	    "Skip Windows NT-family OS required.";
+	my @path = split ';', $ENV{Path};
+	unless ($nt_skip) {
+	DLL_LOOP:
+	    foreach my $dll (qw{PSAPI.DLL ADVAPI32.DLL KERNEL32.DLL}) {
+		foreach my $loc (@path) {
+		    next DLL_LOOP if -e File::Spec->catfile ($loc, $dll);
+		}
+		$nt_skip = "Skip $dll not found.";
+		last;
 	    }
-	$nt_skip = "Skip $dll not found.";
-	last;
 	}
-    }
+    };
+###    $@ and do {chomp $@; print "# Information - Windows check exception: $@\n"};
+}
 
 # OK, we've checked all the "external" causes of failure for the NT
 # variant that I can think of.
@@ -42,12 +47,16 @@ $ENV{PERL_WIN32_PROCESS_INFO_WMI_PARIAH} = '';
 
 print "# Information - WMI object = ", defined $wmi ? "'$wmi'\n" : "undefined\n";
 print "# Information - WMI process object = ", defined $proc ? "'$proc'\n" : "undefined\n";
-print "# Win32::OLE->LastError = @{[Win32::OLE->LastError () || 'none']}\n";
+## print "# Win32::OLE->LastError = @{[Win32::OLE->LastError () || 'none']}\n";
 
 my %skip = (
     NT	=> $nt_skip,
     WMI	=> ($wmi ? 0 : "Skip WMI required."),
     );
+
+eval {require Proc::ProcessTable};
+$skip{PT} = $@ ? "Unable to load Proc::ProcessTable" : 0;
+
 $ENV{PERL_WIN32_PROCESS_INFO_VARIANT} and do {
     my %var = map {($_, 1)} split ',', uc $ENV{PERL_WIN32_PROCESS_INFO_VARIANT};
     foreach (keys %skip) {
@@ -67,7 +76,7 @@ my $test_num = 1;
 # Note - number of tests is 2 (load and version) + 7 * number of variants
 
 my $loaded;
-BEGIN { $| = 1; plan (tests => 16);
+BEGIN { $| = 1; plan (tests => 23);
     print "# Test 1 - Loading the library.\n"}
 END {print "not ok 1\n" unless $loaded;}
 use Win32::Process::Info;
@@ -81,7 +90,7 @@ print "# Test $test_num - See if we can get our version.\n";
 ok (Win32::Process::Info::Version () eq $Win32::Process::Info::VERSION);
 
 
-foreach my $variant (qw{NT WMI}) {
+foreach my $variant (qw{NT WMI PT}) {
 
     my $skip = $skip{$variant};
     print "# Testing variant $variant. Skip = '$skip'\n";

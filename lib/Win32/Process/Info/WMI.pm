@@ -149,12 +149,16 @@ The following methods should be considered public:
 #		used.
 # 1.001_02 01-Mar-2007	T. R. Wyant
 #		Fix code in synopsis.
+# 1.002 11-Jan-2007	T. R. Wyant
+#		Released above changes.
+# 1.003 22-Aug-2007	T. R. Wyant
+#		Updated copyright notice and license.
 
 package Win32::Process::Info::WMI;
 
 use base qw{Win32::Process::Info};
 use vars qw{$VERSION};
-$VERSION = '1.002';
+$VERSION = '1.003';
 
 use strict;
 use vars qw{%mutator};
@@ -531,8 +535,14 @@ Thomas R. Wyant, III (F<wyant at cpan dot org>)
 Copyright 2001, 2002, 2003, 2004 by
 E. I. DuPont de Nemours and Company, Inc.
 
+Modifications since version 1.001_01 copyright 2007 by Thomas R. Wyant,
+III. All rights reserved.
+
+=head1 LICENSE
+
 This module is free software; you can use it, redistribute it
-and/or modify it under the same terms as Perl itself.
+and/or modify it under the same terms as Perl itself. Please see
+L<http://perldoc.perl.org/index-licence.html> for the current licenses.
 
 =cut
 

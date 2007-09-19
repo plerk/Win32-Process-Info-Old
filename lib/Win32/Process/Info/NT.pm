@@ -145,12 +145,16 @@ return undef;
 # 1.005_01 08-Mar-2007	T. R. Wyant
 #		Fix code in synopsis.
 #		Remove reference to 'use_wmi_names' in documentation.
+# 1.006 11-Jan-2007 T. R. Wyant
+#		Released above changes.
+# 1.007 22-Aug-2007 T. R. Wyant
+#		Updated copyright notice and license.
 
 package Win32::Process::Info::NT;
 
 use base qw{Win32::Process::Info};
 use vars qw{$VERSION};
-$VERSION = '1.006';
+$VERSION = '1.007';
 
 use vars qw {
     $AdjustTokenPrivileges
@@ -767,8 +771,14 @@ Thomas R. Wyant, III (F<wyant at cpan dot org>)
 
 Copyright 2001, 2002, 2003 by E. I. DuPont de Nemours and Company, Inc.
 
+Modifications since version 1.005 copyright 2007 by Thomas R. Wyant,
+III. All rights reserved.
+
+=head1 LICENSE
+
 This module is free software; you can use it, redistribute it
-and/or modify it under the same terms as Perl itself.
+and/or modify it under the same terms as Perl itself. Please see
+L<http://perldoc.perl.org/index-licence.html> for the current licenses.
 
 =cut
 
