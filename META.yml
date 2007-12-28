@@ -1,6 +1,6 @@
 ---
 name: Win32-Process-Info
-version: 1.010
+version: 1.011
 author:
   - Tom Wyant (wyant at cpan dot org)
 abstract: Get information on arbitrary processes in Windows NT
@@ -10,7 +10,7 @@ resources:
 provides:
   Win32::Process::Info:
     file: lib/Win32/Process/Info.pm
-    version: 1.010
+    version: 1.011
   Win32::Process::Info::DummyRoutine:
     file: lib/Win32/Process/Info/NT.pm
   Win32::Process::Info::NT:
@@ -21,7 +21,7 @@ provides:
     version: 0.001
   Win32::Process::Info::WMI:
     file: lib/Win32/Process/Info/WMI.pm
-    version: 1.003
+    version: 1.004
 generated_by: Module::Build version 0.2808
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.2.html

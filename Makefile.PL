@@ -1,8 +1,15 @@
+use 5.006;
+
+use strict;
+use warnings;
+
 use Config;
 use ExtUtils::MakeMaker;
 
-my $vers = $] >= 5.008 ? '-5.8' : '';
+## my $vers = $] >= 5.008 ? '-5.8' : '';
+my $vers = '';
 
+(my $mmv = ExtUtils::MakeMaker->VERSION) =~ s/_//g;
 WriteMakefile (
 	NAME => 'Win32::Process::Info',
 	VERSION_FROM => 'lib/Win32/Process/Info.pm',
@@ -16,5 +23,7 @@ WriteMakefile (
 		ABSTRACT => 'Get information on arbitrary processes in Windows NT',
 		BINARY_LOCATION => "$Config{archname}$vers/Win32-Process-Info.tar.gz",
 		) : (),
+		($mmv >= 6.31 ?
+		    (LICENSE => 'perl') : ())
 	);
 
