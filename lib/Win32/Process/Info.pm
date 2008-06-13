@@ -190,10 +190,21 @@ The following methods should be considered public:
 #		Added PT variant, mainly for testing.
 # 1.011 28-Dec-2007 T. R. Wyant
 #		use warnings.
+# 1.011_01 05-Jun-2008 T. R. Wyant
+#		Fix Subprocesses() to check for re-used process IDs by
+#		comparing parent and subprocess CreationDate, and only
+#		retaining as subprocesses those not created before their
+#		parents.
+# 1.011_02 11-Jun-2008 T. R. Wyant
+#		Add SubProcInfo(), which passes off to GetProcInfo() and
+#		then synthesizes (if possible) key {subProcesses} based
+#		on the {ParentProcessId} key if that is available.
+# 1.012 12-Jun-2008 T. R. Wyant
+#		Production version.
 
 package Win32::Process::Info;
 
-$VERSION = '1.011';
+$VERSION = '1.012';
 
 use strict;
 use warnings;
@@ -651,10 +662,14 @@ my $rslt = \%subs;
 my $key_found;
 foreach my $proc (values %prox) {
     $subs{$proc->{ProcessId}} ||= [];
-    next unless $proc->{ParentProcessId};
+    # TRW 1.011_01 next unless $proc->{ParentProcessId};
+    defined (my $pop = $proc->{ParentProcessId}) or next; # TRW 1.011_01
     $key_found++;
-    next unless $prox{$proc->{ParentProcessId}};
-    push @{$subs{$proc->{ParentProcessId}}}, $proc->{ProcessId};
+    # TRW 1.011_01 next unless $prox{$proc->{ParentProcessId}};
+    $prox{$pop} or next;	# TRW 1.011_01
+    $proc->{CreationDate} >= $prox{$pop}{CreationDate} or next;	# TRW 1.011_01
+    # TRW 1.011_01 push @{$subs{$proc->{ParentProcessId}}}, $proc->{ProcessId};
+    push @{$subs{$pop}}, $proc->{ProcessId};
     }
 my %listed;
 return %listed unless $key_found;
@@ -662,13 +677,61 @@ if (@_) {
     $rslt = \%listed;
     while (@_) {
 	my $pid = shift;
-    next unless $subs{$pid};	# TRW 1.006
+	next unless $subs{$pid};	# TRW 1.006
 	next if $listed{$pid};
 	$listed{$pid} = $subs{$pid};
 	push @_, @{$subs{$pid}};
 	}
     }
 return wantarray ? %$rslt : $rslt;
+}
+
+=item @info = $pi->SubProcInfo ();
+
+This is a convenience method which wraps GetProcInfo(). It has the same
+calling sequence, and returns generally the same data. But the data
+returned by this method will also have the {subProcesses} key, which
+will contain a reference to an array of hash references representing the
+data on subprocesses of each process.
+
+Unlike the data returned from Subprocesses(), the data here are not
+flattened; so if you specify one or more process IDs as arguments, you
+will get back at most the number of process IDs you specified; fewer if
+some of the specified processes do not exist.
+
+B<Note well> that a given process can occur more than once in the
+output. If you call SubProcInfo without arguments, the @info array will
+contain every process in the system, even those which are also in some
+other process' {subProcesses} array.
+
+Also unlike Subprocesses(), you will get an exception if you use this
+method with a variant that does not support the ParentProcessId key.
+
+=cut
+
+sub SubProcInfo {
+    my $self = shift;
+    my $opt = ref $_[0] eq 'HASH' ? shift : {};
+    my @data = $self->GetProcInfo ($opt);
+    my %subs = map {$_->{ProcessId} => $_} @data;
+    my $bingo;
+    foreach my $proc (@data) {
+	exists $proc->{ParentProcessId} or next;
+	$proc->{subProcesses} ||= [];
+	$bingo++;
+	defined (my $dad = $subs{$proc->{ParentProcessId}}) or next;
+	defined $dad->{CreationDate} && defined $proc->{CreationDate}
+	    or next;
+	$dad->{CreationDate} > $proc->{CreationDate} and next;
+	push @{$dad->{subProcesses} ||= []}, $proc;
+    }
+    $bingo or croak "Error - Variant '@{[$self->Get('variant')
+    ]}' does not support the ParentProcessId key";
+    if (@_) {
+	map {exists $subs{$_} ? $subs{$_} : ()} @_;
+    } else {
+	@data;
+    }
 }
 
 =item print "$pi Version = @{[$pi->Version ()]}\n"
@@ -945,6 +1008,12 @@ since at least 5.004. Your mileage may, of course, vary.
            in Makefile.PL version check.
        Skip process username test in t/basic.t if the username
            cannot be determined.
+ 1.012
+       Check for re-used parent process IDs in Subprocesses(),
+           and eliminate subprocesses created before their
+           parents.
+       Add SubProcInfo(), which calls GetProcInfo() and then
+           adds key {subProcesses} based on {ParentProcessId}.
 
 =head1 BUGS
 
@@ -1061,8 +1130,8 @@ Thomas R. Wyant, III (F<wyant at cpan dot org>)
 Copyright 2001, 2002, 2003, 2004, 2005 by E. I. DuPont de Nemours and
 Company, Inc.  All rights reserved.
 
-Modifications since version 1.006 copyright 2007 by Thomas R. Wyant,
-III. All rights reserved.
+Modifications since version 1.006 copyright 2007 and 2008 by Thomas R.
+Wyant, III. All rights reserved.
 
 =head1 LICENSE
 
