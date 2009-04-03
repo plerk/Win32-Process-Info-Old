@@ -1,4 +1,7 @@
+package main;
+
 use strict;
+use warnings;
 
 use File::Spec;
 use Test;
@@ -11,7 +14,9 @@ BEGIN {
     eval {
 	require Win32;
 
-	if (eval {require Win32::OLE; 1}) {
+	if ($^O eq 'MSWin32' && lc $ENV{OS} eq 'reactos') {
+	    $wmi = "WMI does not work under ReactOS";
+	} elsif (eval {require Win32::OLE; 1}) {
 	    my $old_warn = Win32::OLE->Option ('Warn');	# Sure wish I could localize this baby.
 	    Win32::OLE->Option (Warn => 0);
 	    $wmi = Win32::OLE->GetObject ('winmgmts:{impersonationLevel=impersonate,(Debug)}!//./root/cimv2');
@@ -43,8 +48,8 @@ BEGIN {
 # OK, we've checked all the "external" causes of failure for the NT
 # variant that I can think of.
 
-$ENV{PERL_WIN32_PROCESS_INFO_WMI_DEBUG_PRIV} =
-$ENV{PERL_WIN32_PROCESS_INFO_WMI_PARIAH} = '';
+local $ENV{PERL_WIN32_PROCESS_INFO_WMI_DEBUG_PRIV} = '';
+local $ENV{PERL_WIN32_PROCESS_INFO_WMI_PARIAH} = '';
 
 print "# Information - WMI object = ", defined $wmi ? "'$wmi'\n" : "undefined\n";
 print "# Information - WMI process object = ", defined $proc ? "'$proc'\n" : "undefined\n";
@@ -77,8 +82,11 @@ my $test_num = 1;
 # Note - number of tests is 2 (load and version) + 7 * number of variants
 
 my $loaded;
-BEGIN { $| = 1; plan (tests => 23);
-    print "# Test 1 - Loading the library.\n"}
+BEGIN {
+    $| = 1;	## no critic (RequireLocalizedPunctuationVars)
+    plan (tests => 23);
+    print "# Test 1 - Loading the library.\n"
+}
 END {print "not ok 1\n" unless $loaded;}
 use Win32::Process::Info;
 $loaded = 1;
@@ -98,16 +106,17 @@ foreach my $variant (qw{NT WMI PT}) {
 
     $test_num++;
     print "# Test $test_num - Instantiating the $variant variant.\n";
-    my $pi = Win32::Process::Info->new (undef, $variant) unless $skip;
+    my $pi;
+    $skip or $pi = Win32::Process::Info->new (undef, $variant);
     skip ($skip, $pi);
-    $skip = "Skip Can't instatiate $variant variant"
-	unless $pi || $skip;
-##    $skip ||= !$pi;
+    ($pi || $skip)
+	or $skip = "Skip Can't instatiate $variant variant";
 
 
     $test_num++;
     print "# Test $test_num - Ability to list processes.\n";
-    my @pids = $pi->ListPids () unless $skip;
+    my @pids;
+    $skip or @pids = $pi->ListPids ();
     skip ($skip, scalar @pids);
 
 
@@ -119,13 +128,15 @@ foreach my $variant (qw{NT WMI PT}) {
 
     $test_num++;
     print "# Test $test_num - Ability to get process info.\n";
-    my @pinf = $pi->GetProcInfo () unless $skip;
+    my @pinf;
+    $skip or @pinf = $pi->GetProcInfo ();
     skip ($skip, scalar @pinf);
 
 
     $test_num++;
     print "# Test $test_num - Ability to get our own info.\n";
-    my ($me) = $pi->GetProcInfo ($$) unless $skip;
+    my $me;
+    $skip or ($me) = $pi->GetProcInfo ($$);
     skip ($skip, $me);
 
 
@@ -142,3 +153,5 @@ foreach my $variant (qw{NT WMI PT}) {
 	    "Can not determine username under $^O"),
 	defined $my_user && $user eq $my_user);
 }
+
+1;
