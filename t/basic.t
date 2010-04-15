@@ -9,13 +9,16 @@ use Test;
 my ($proc, $wmi);
 my $my_user = getlogin || getpwuid ($<);
 my $nt_skip;
+my $reactos;
 BEGIN {
     $nt_skip = 'NT-Family OS required.';
+    $reactos = $^O eq 'MSWin32' && lc $ENV{OS} eq 'reactos';
     eval {
 	require Win32;
 
-	if ($^O eq 'MSWin32' && lc $ENV{OS} eq 'reactos') {
-	    $wmi = "WMI does not work under ReactOS";
+	if ($reactos) {
+	    $wmi = undef;	# WMI does not work under ReactOS,
+				# at least as of 0.3.10
 	} elsif (eval {require Win32::OLE; 1}) {
 	    my $old_warn = Win32::OLE->Option ('Warn');	# Sure wish I could localize this baby.
 	    Win32::OLE->Option (Warn => 0);
@@ -84,7 +87,9 @@ my $test_num = 1;
 my $loaded;
 BEGIN {
     $| = 1;	## no critic (RequireLocalizedPunctuationVars)
-    plan (tests => 23);
+    my @todo;
+    $reactos and push @todo, 10;
+    plan ( tests => 26, todo => \@todo );
     print "# Test 1 - Loading the library.\n"
 }
 END {print "not ok 1\n" unless $loaded;}
@@ -111,6 +116,11 @@ foreach my $variant (qw{NT WMI PT}) {
     skip ($skip, $pi);
     ($pi || $skip)
 	or $skip = "Skip Can't instatiate $variant variant";
+
+
+    $test_num++;
+    print "# Test $test_num - Ask for elapsed time in seconds.\n";
+    skip( $skip, eval { $pi->Set( elapsed_in_seconds => 1 ) } );
 
 
     $test_num++;

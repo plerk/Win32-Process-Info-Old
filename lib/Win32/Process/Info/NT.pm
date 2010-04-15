@@ -1,6 +1,3 @@
-use strict;
-use warnings;
-
 =head1 NAME
 
 Win32::Process::Info::NT - Provide process information via NT-native calls.
@@ -52,13 +49,19 @@ The following subroutines should be considered public:
 
 =cut
 
-package Win32::Process::Info::DummyRoutine;
+
+package Win32::Process::Info::NT;
+
+use 5.006;
+
+use strict;
+use warnings;
 
 #	The purpose of this is to provide a dummy Call
 #	method for those cases where we might not be able
 #	to map a subroutine.
 
-sub new {
+sub Win32::Process::Info::DummyRoutine::new {
 my $class = shift;
 $class = ref $class if ref $class;
 my $self = {};
@@ -66,122 +69,46 @@ bless $self, $class;
 return $self;
 }
 
-sub Call {
-return undef;
+sub Win32::Process::Info::DummyRoutine::Call {
+return undef;	## no critic (ProhibitExplicitReturnUndef)
 }
 
-# 0.010	02-Sep-2002	T. R. Wyant
-#		Initial release under this name.
-#
-# 0.011	14-Sep-2002	T. R. Wyant
-#		Increment version.
-#
-#	30-Oct-2002	T. R. Wyant
-#		Fix warning when -w in effect. Fix provided by Judy
-#		Hawkins (of Pitney Bowes, according to her mailing
-#		address), and accepted with thanks.
-#
-# 0.012	11-Nov-2002	T. R. Wyant
-#		Increment version.
-#		Pick up username info.
-#
-#	12-Nov-2002	T. R. Wyant
-#		Change 'new' argument to a hash. This method wasn't
-#			marked private, but neither is it in the POD.
-#		Reject hashes with keys other than variant.
-#
-#	21-Nov-2002	T. R. Wyant
-#		Set SeDebugPrivilege on instantiation.
-#		Replace "sub" manifest constants with "use constant".
-#		Retry OpenProcess in (apparently futile) attempt to
-#			get at lest _some_ information when it's
-#			not all available.
-#		GetProcInfo now returns all PIDs requested, even if
-#			the process handle could not be opened. This
-#			is what the documentation has said it did all
-#			along, but was not what it actually did.
-#
-#	05-Dec-2002	T. R. Wyant
-#		Discovered Win32API::Registry::AllowPriv. Used that
-#			instead of my own Win32::API method to set
-#			the privilege (when you care enough to steal
-#			the very best). My own method preserved after
-#			the __END__ directive as a monument to - well,
-#			something.
-#
-# 0.013	13-Mar-2003	T. R. Wyant
-#		Changed dependencies in Makefile.pl. See Info.pm for
-#			more information.
-#		Made Win32API::Registry optional; if not found, just
-#			don't set SeDebugPrivilege.
-#
-# 0.013_23 26-Jun-2003	T. R. Wyant
-#		Added optional first hashref argument to GetProcInfo,
-#			used no_user_info key to bypass user info. This
-#			was to be consistent with the WMI variant; the
-#			reason for adding this to WMI doesn't exist for
-#			this variant.
-#
-# 0.014	27-Jun-2003	T. R. Wyant
-#		Released.
-#
-# 0.014_01 25-Jul-2003	T. R. Wyant
-#		Added hash argument assert_debug_priv to 'new' method.
-#			It's ignored, though, since this variant
-#			always asserts debug.
-#
-# 1.000 09-Oct-2003	T. R. Wyant
-#		When the only thing you've fixed in the last two months
-#			is the docs, it's time to call it production
-#			code. And if _that_ statement doesn't flush
-#			out more problems, nothing will.
-#
-# 1.005 15-Mar-2005	T. R. Wyant
-#		Move assertion of seDebugPriv to the point where we
-#		discover we can require Win32API::Registry, since we
-#		don't need to do it but once for the process (not once
-#		per instantiation of the object), and we don't leak
-#		token handles this way.
-# 1.005_01 08-Mar-2007	T. R. Wyant
-#		Fix code in synopsis.
-#		Remove reference to 'use_wmi_names' in documentation.
-# 1.006 11-Jan-2007 T. R. Wyant
-#		Released above changes.
-# 1.007 22-Aug-2007 T. R. Wyant
-#		Updated copyright notice and license.
-
-package Win32::Process::Info::NT;
-
 use base qw{Win32::Process::Info};
-use vars qw{$VERSION};
-$VERSION = '1.007';
 
-use vars qw {
-    $AdjustTokenPrivileges
-    $CloseHandle
-    $elapsed_in_seconds
-    $EnumProcesses
-    $EnumProcessModules
-    $FileTimeToSystemTime
-    $GetCurrentProcess
-    $GetModuleFileNameEx
-    $GetPriorityClass
-    $GetProcessAffinityMask
-    $GetProcessIoCounters
-    $GetProcessWorkingSetSize
-    $GetProcessTimes
-    $GetProcessVersion
-    $GetTokenInformation
-    $LookupAccountSid
-    $LookupPrivilegeValue
-    $OpenProcess
-    $OpenProcessToken
-    $VERSION
-    };
+our $VERSION = '1.015';
+
+our $AdjustTokenPrivileges;
+our $CloseHandle;
+our $elapsed_in_seconds;
+our $EnumProcesses;
+our $EnumProcessModules;
+our $FileTimeToSystemTime;
+our $GetCurrentProcess;
+our $GetModuleFileNameEx;
+our $GetPriorityClass;
+our $GetProcessAffinityMask;
+our $GetProcessIoCounters;
+our $GetProcessWorkingSetSize;
+our $GetProcessTimes;
+our $GetProcessVersion;
+our $GetTokenInformation;
+our $LookupAccountSid;
+our $LookupPrivilegeValue;
+our $OpenProcess;
+our $OpenProcessToken;
+
+our $GetSidIdentifierAuthority;
+our $GetSidSubAuthority;
+our $GetSidSubAuthorityCount;
+our $IsValidSid;
+
 use Carp;
 use File::Basename;
 use Win32;
 use Win32::API;
+
+use constant TokenUser => 1;	# PER MSDN
+use constant TokenOwner => 4;
 
 my $setpriv;
 eval {
@@ -381,8 +308,8 @@ use constant TOKEN_EXECUTE         => STANDARD_RIGHTS_EXECUTE;
 # Pointer	P
 
 sub GetProcInfo {
-my $self = shift;
-my $opt = ref $_[0] eq 'HASH' ? shift : {};
+my ( $self, @args ) = @_;
+my $opt = ref $args[0] eq 'HASH' ? shift @args : {};
 
 $CloseHandle ||= _map ('KERNEL32', 'CloseHandle', [qw{N}], 'V');
 $GetModuleFileNameEx ||=
@@ -411,7 +338,7 @@ $EnumProcessModules ||=
 my $dac = PROCESS_QUERY_INFORMATION | PROCESS_VM_READ;
 my $tac = TOKEN_READ;
 
-@_ = ListPids ($self) unless @_;
+@args or @args = ListPids ($self);
 
 my @pinf;
 
@@ -422,9 +349,9 @@ my @trydac = (
     PROCESS_QUERY_INFORMATION,
     );
 
-foreach my $pid (map {$_ eq '.' ? $$ : $_} @_) {
+foreach my $pid (map {$_ eq '.' ? $$ : $_} @args) {
 
-    $^E = 0;
+    local $^E = 0;
     $dat = $self->_build_hash (undef, ProcessId => $pid);
     $self->_build_hash ($dat, Name => 'System Idle Process')
 	unless $pid;
@@ -490,8 +417,6 @@ foreach my $pid (map {$_ eq '.' ? $$ : $_} @_) {
 	last if $opt->{no_user_info};
 	$OpenProcessToken->Call ($prchdl, $tac, $tokhdl)
 	    or do {$tokhdl = undef; last; };
-	sub TokenUser {1};	# PER MSDN
-	sub TokenOwner {4};
 	my ($dsize, $size_in, $size_out, $sid, $stat, $use, $void);
 	$tokhdl = unpack 'L', $tokhdl;
 
@@ -541,11 +466,13 @@ return wantarray ? @pinf : \@pinf;
 }
 
 sub _to_char_date {
+my @args = @_;
 my @result;
-$FileTimeToSystemTime ||= Win32::API->new ('KERNEL32', 'FileTimeToSystemTime', [qw{P P}], 'I') or
-    croak "Error - Failed to map FileTimeToSystemTime: $^E";
+( $FileTimeToSystemTime ||=
+    Win32::API->new ('KERNEL32', 'FileTimeToSystemTime', [qw{P P}], 'I') )
+    or croak "Error - Failed to map FileTimeToSystemTime: $^E";
 my $systim = '  ' x 8;
-foreach (@_) {
+foreach (@args) {
     $FileTimeToSystemTime->Call ($_, $systim) or
 	croak "Error - FileTimeToSystemTime failed: $^E";
     my $time;
@@ -564,8 +491,9 @@ return $result[0];
 }
 
 sub _ll_to_bigint {
+my @args = @_;
 my @result;
-foreach (@_) {
+foreach (@args) {
     my @data = unpack 'L*', $_;
     while (@data) {
 	my $low = shift @data;
@@ -578,8 +506,9 @@ return $result[0];
 }
 
 sub _clunks_to_secs {
+my @args = @_;
 my @result;
-foreach (_ll_to_bigint (@_)) {
+foreach (_ll_to_bigint (@args)) {
     push @result, $_ / 10_000_000;
     }
 return @result if wantarray;
@@ -596,9 +525,9 @@ reference to the list is returned.
 =cut
 
 sub ListPids {
-my $self = shift;
+my ( $self, @args ) = @_;
 my $filter = undef;
-$filter = {map {(($_ eq '.' ? $$ : $_), 1)} @_} if @_;
+@args and $filter = {map {(($_ eq '.' ? $$ : $_), 1)} @args};
 $EnumProcesses ||= _map ('PSAPI', 'EnumProcesses', [qw{P N P}], 'I');
 my $psiz = 4;
 my $bsiz = 0;
@@ -621,16 +550,10 @@ my $bsiz = 0;
 	}
     return wantarray ? @pids : \@pids;
     }
-
+confess 'Programming error - should not get here';
 }
 
 
-use vars qw{
-    $GetSidIdentifierAuthority
-    $GetSidSubAuthority
-    $GetSidSubAuthorityCount
-    $IsValidSid
-    };
 
 #	_text_sid (pointer to SID)
 
@@ -666,8 +589,8 @@ my $sid = shift;
 #	Make sure we have a valid SID
 
 $IsValidSid ||= _map ('ADVAPI32', 'IsValidSid', [qw{P}], 'I');
-my $stat = $IsValidSid->Call ($sid);
-return undef unless $stat;
+my $stat = $IsValidSid->Call ($sid)
+    or return;
 
 
 #	Get the identifier authority.
@@ -767,18 +690,19 @@ NT 4.0 without WMI.
 
 Thomas R. Wyant, III (F<wyant at cpan dot org>)
 
-=head1 COPYRIGHT
+=head1 COPYRIGHT AND LICENSE
 
-Copyright 2001, 2002, 2003 by E. I. DuPont de Nemours and Company, Inc.
+Copyright (C) 2001-2003 by E. I. DuPont de Nemours and Company, Inc.
 
-Modifications since version 1.005 copyright 2007 by Thomas R. Wyant,
-III. All rights reserved.
+Copyright (C) 2007-2010 by Thomas R. Wyant, III
 
-=head1 LICENSE
+This program is free software; you can redistribute it and/or modify it
+under the same terms as Perl 5.10.0. For more details, see the full text
+of the licenses in the directory LICENSES.
 
-This module is free software; you can use it, redistribute it
-and/or modify it under the same terms as Perl itself. Please see
-L<http://perldoc.perl.org/index-licence.html> for the current licenses.
+This program is distributed in the hope that it will be useful, but
+without any warranty; without even the implied warranty of
+merchantability or fitness for a particular purpose.
 
 =cut
 

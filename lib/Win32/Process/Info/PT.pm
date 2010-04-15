@@ -53,6 +53,10 @@ The following subroutines should be considered public:
 #		Initial release.
 # 0.001_01 01-Apr-2009	T. R. Wyant
 #		Make Perl::Critic compliant (to -stern, with my own profile)
+# 0.002	02-Apr-2009	T. R. Wyant
+#		Production version.
+# 0.002_01 07-Apr-2009	T. R. Wyant
+#		Use $self->_build_hash(), so that we test it.
 
 package Win32::Process::Info::PT;
 
@@ -60,7 +64,7 @@ use strict;
 use warnings;
 
 use base qw{Win32::Process::Info};
-our $VERSION = '0.002';
+our $VERSION = '1.015';
 
 use Carp;
 use File::Basename;
@@ -170,16 +174,16 @@ to be consistent with the other variants.
 ##	utime => 'UserModeTime',
 	stime => sub {
 	    my ($info, $proc) = @_;
-	    $info->{KernelModeTime} = $proc->stime () * 10;
+	    $info->{KernelModeTime} = $proc->stime() * 10;
 	},
 	utime => sub {
 	    my ($info, $proc) = @_;
-	    $info->{UserModeTime} = $proc->utime () * 10;
+	    $info->{UserModeTime} = $proc->utime() * 10;
 	},
 	uid => sub {
 	    my ($info, $proc) = @_;
 	    $info->{OwnerSid} = my $uid = $proc->uid ();
-	    $info->{Owner} = $pw_uid{$uid} ||= '\\' . getpwuid  ($uid);
+	    $info->{Owner} = $pw_uid{$uid} ||= '\\' . getpwuid($uid);
 	},
     );
     my @fld_sup = Proc::ProcessTable->new ()->fields ();
@@ -200,7 +204,11 @@ to be consistent with the other variants.
 		if (ref $name eq 'CODE') {
 		    $name->($info, $proc);
 		} else {
-		    $info->{$name} = $proc->$key ();
+		    # Yes, we could just plop the information into the
+		    # hash. But _build_hash() needs to be called in
+		    # every variant so it gets tested under any
+		    # variant.
+		    $self->_build_hash($info, $name, $proc->$key());
 		}
 	    }
 	    push @pinf, $info;
@@ -260,16 +268,20 @@ both PPM and tar distributions.
 
 Thomas R. Wyant, III (F<wyant at cpan dot org>)
 
-=head1 COPYRIGHT
+=head1 COPYRIGHT AND LICENSE
 
-Copyright 2007, 2009 by Thomas R. Wyant, III. All rights reserved.
+Copyright (C) 2007, 2009-2010 by Thomas R. Wyant, III
 
-=head1 LICENSE
+This program is free software; you can redistribute it and/or modify it
+under the same terms as Perl 5.10.0. For more details, see the full text
+of the licenses in the directory LICENSES.
 
-This module is free software; you can use it, redistribute it
-and/or modify it under the same terms as Perl itself. Please see
-L<http://perldoc.perl.org/index-licence.html> for the current licenses.
+This program is distributed in the hope that it will be useful, but
+without any warranty; without even the implied warranty of
+merchantability or fitness for a particular purpose.
 
 =cut
+
+# ex: set textwidth=72 :
 
 1;

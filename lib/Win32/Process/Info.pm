@@ -34,7 +34,10 @@ documentation.
 
 This change is somewhat incompatible with 1.006 and earlier because it
 requires the import() method to be called in the correct place with the
-correct arguments. See the import() documentation below for the details.
+correct arguments. If you C<require Win32::Process::Info>, you B<must>
+explicitly call Win32::Process::Info->import().
+
+See the import() documentation below for the details.
 
 B<YOU HAVE BEEN WARNED!>
 
@@ -58,173 +61,20 @@ The following methods should be considered public:
 
 =cut
 
-#	Modifications:
-
-# 0.010	02-Sep-2002	T. R. Wyant
-#		Renamed from Win32::ProcInfo
-#		Initial release under name Win32::Process::Info
-#
-# 0.011	14-Sep-2002	T. R. Wyant
-#		Incremented version number
-#		Added method "Version".
-#
-# 0.012	06-Nov-2002	T. R. Wyant
-#		Incremented version number
-#		Made attributes beginning with "_" hidden.
-#		Add attribute _mutator, containing a reference to
-#			%mutator.
-#
-#	12-Nov-2002	T. R. Wyant
-#		Build hash argument for subclass instantiators.
-#		Document this, and the use of the various keys.
-#
-#	07-Dec-2002	T. R. Wyant
-#		Check environment variable
-#		PERL_WIN32_PROCESS_INFO_VARIANT for the default
-#		variant(s), if none is specified.
-#
-# 0.013	13-Mar-2003	T. R. Wyant
-#		Remove dependencies on Win32::API, Win32::OLE, and
-#			Win32API::Registry from Makefile.PL, since
-#			these are conditional.
-#
-# 0.013_2 21-May-2003	T. R. Wyant
-#		Add the %variant_support hash in response to INIT block
-#			errors in Win32::API when (effectively)
-#			require-d when the object is new-ed.
-#
-# 0.013_21 05-Jun-2003	T. R. Wyant
-#		Found a need to tweak the WMI variant. Wouldn't have
-#			incremented here, but wanted a different package
-#			number since I had previously send out 0.013_2
-#			privately. The tweak was the manual skipping of
-#			processes in response to the contents of
-#			$ENV{PERL_WIN32_PROCESS_INFO_WMI_PARIAH}
-#
-# 0.013_22 20-Jun-2003	T. R. Wyant
-#		No longer assert the debug privilege by default. Only
-#			do it $ENV{PERL_WIN32_PROCESS_INFO_WMI_DEBUG}
-#			is TRUE in the Perl sense.
-#		As a consequence of the effects of the above, default
-#			the pariah list to empty.
-#		Enhanced the test to skip the NT variant if it can't
-#			find all the DLLs.
-#
-# 0.013_23 26-Jun-2003	T. R. Wyant
-#		Added method Subprocesses. Because I needed it.
-#
-# 0.014	27-Jun-2003	T. R. Wyant
-#		Wrapped up latest version, released to CPAN.
-#
-# 0.014_01 25-Jul-2003	T. R. Wyant
-#		Straightened out some of the POD.
-#		Added hash argument assert_debug_priv to 'new' method.
-#			This is legal for all variants, but only
-#			affects the WMI variant.
-# 0.014_02 16-Aug-2003	T. R. Wyant
-#		Added missing semicolon after "use Win32::Process::Info"
-#			in the synopsis.
-#
-# 1.000 09-Oct-2003	T. R. Wyant
-#		When the only thing you've fixed in the last two months
-#			is the docs, it's time to call it production
-#			code. And if _that_ statement doesn't flush
-#			out more problems, nothing will.
-#
-# 1.001	05-Jan-2004	T. R. Wyant
-#		No changes to the code itself. But removed the
-#			dependency on Win32 in Makefile.PL because
-#			PPM3 chokes on it, and I figure anyone who isn't
-#			using PPM is smart enough to read the Readme.
-#
-# 1.001_01 24-Feb-2004	T. R. Wyant
-#		Failed attempt to fix WMI memory leak. But it's clearly
-#		associated with the use of Win32::OLE::Variant objects
-#		to retrieve the owner information, because the code
-#		appears not to leak if we don't do this. Versions prior
-#		to this one leaked anyway, because the Variant objects
-#		were allocated whether or not they were used. But this
-#		version doesn't allocate them unless they are to be
-#		used.
-#
-# 1.002	07-Jun-2004	T. R. Wyant
-#		Document leaks under WMI, and how to minimize. Document
-#		related modules.
-#
-# 1.003 19-Dec-2004	T. R. Wyant
-#		Remove the "_PRIV" from the end of environment variable
-#		name PERL_WIN32_PROCESS_INFO_WMI_DEBUG in the POD.
-#		Record the variant name in the object.
-#		Clarify (hopefully) the PERL_WIN32_PROCESS_INFO_VARIANT
-#		documentation.
-#		Document current whereabouts of Win32::IProc - or at
-#		least the sad remnants of it.
-# 1.004	30-Dec-2004	T. R. Wyant
-#		No code change. Removed the commented-out dependencies
-#		in Makefile.PL, since sometime in the last 6 months
-#		someone has enhanced CPAN's validation to generate
-#		a bug report when I do this. The only hard-and-fast
-#		dependency is on Win32, but ActiveState's PPM3
-#		chokes on this.
-#
-# 1.005 15-Mar-2005	T. R. Wyant
-#		Moved assertion of seDebugPriv in the NT variant to
-#		stop token handle leak.
-#		Turned off $^W for timelocal call, since it throws
-#		random warnings otherwise.
-# 1.006 23-Sep-2005 T. R. Wyant
-#		Skip non-existent processes in the Subprocesses method.
-# 1.007 10-Jan-2007	T. R. Wyant
-#		Use the import() hook to determine which variants may
-#		be used in the script.
-# 1.008 17-Jan-2007	T. R. Wyant
-#		Clean up docs
-# 1.008_01 08-Mar-2007	T. R. Wyant
-#		Fix synopsis code so it compiles as-is.
-#		Correct error message when new() gets invalid reference.
-# 1.009	16-Mar-2007 T. R. Wyant
-#		Released above changes.
-# 1.010 22-Aug-2007 T. R. Wyant
-#		Changed elapsed_as_seconds to elapsed_in_seconds in
-#		synopsis code. Also added 'grep' example.
-#		Added PT variant, mainly for testing.
-# 1.011 28-Dec-2007 T. R. Wyant
-#		use warnings.
-# 1.011_01 05-Jun-2008 T. R. Wyant
-#		Fix Subprocesses() to check for re-used process IDs by
-#		comparing parent and subprocess CreationDate, and only
-#		retaining as subprocesses those not created before their
-#		parents.
-# 1.011_02 11-Jun-2008 T. R. Wyant
-#		Add SubProcInfo(), which passes off to GetProcInfo() and
-#		then synthesizes (if possible) key {subProcesses} based
-#		on the {ParentProcessId} key if that is available.
-# 1.012 12-Jun-2008 T. R. Wyant
-#		Production version.
-# 1.012_01 19-Jul-2008 T. R. Wyant
-#		Check for ReactOS and disable WMI, since it hangs under
-#		ReactOS 0.3.5.
-# 1.012_02 01-Apr-2008 T. R. Wyant
-#		Check for defined creation dates in Subprocesses(); Idle
-#		and System don't have them, at least under WMI.
-# 1.012_03 01-Apr-2008 T. R. Wyant
-#		Make Perl::Critic compliant (-stern, with my own profile).
-
 package Win32::Process::Info;
+
+use 5.006;
 
 use strict;
 use warnings;
 
-our $VERSION = '1.014';
-
-use vars qw{%mutator %static};
+our $VERSION = '1.015';
 
 use Carp;
 use File::Spec;
 use Time::Local;
-use UNIVERSAL qw{isa};
 
-%static = (
+our %static = (
     elapsed_in_seconds	=> 1,
     variant		=> $ENV{PERL_WIN32_PROCESS_INFO_VARIANT},
     );
@@ -313,16 +163,18 @@ croak "Error - Variant '$variant' is unsupported on your configuration. $variant
 return 1;
 }
 
-%mutator = (
+our %mutator = (
     elapsed_in_seconds	=> sub {$_[2]},
     variant		=> sub {
-	croak "Error - Variant can not be set on an instance."
-	    if isa ($_[0], 'Win32::Process::Info');
+	ref $_[0]
+	    and eval { $_[0]->isa( 'Win32::Process::Info' ) }
+	    or croak 'Error - Variant can not be set on an instance';
 	foreach (split '\W+', $_[2]) {
 	    _check_variant ($_);
-	    }
-	$_[2]},
-    );
+	}
+	$_[2]
+    },
+);
 
 
 =item $pi = Win32::Process::Info->new ([machine], [variant], [hash])
@@ -405,6 +257,10 @@ foreach my $inp (@params) {
     $inx++;
     }
 
+_import_done()
+    or croak __PACKAGE__,
+	'->import() must be called before calling ', __PACKAGE__,
+	'->new()';
 my $mach = $arg{host} or delete $arg{host};
 my $try = $arg{variant} || $static{variant} || 'WMI,NT,PT';
 foreach my $variant (grep {$_} split '\W+', $try) {
@@ -637,6 +493,11 @@ passing any necessary arguments.
 	    }
 	}
 	return;
+    }
+
+    # Return the number of times import() done.
+    sub _import_done {
+	return $idempotent;
     }
 
 }	# End local symbol block.
@@ -950,107 +811,6 @@ As of ActivePerl 630, none of this uses any packages that are not
 included with ActivePerl. Carp and Time::Local have been in the core
 since at least 5.004. Your mileage may, of course, vary.
 
-=head1 HISTORY
-
- 0.010 Released as Win32::Process::Info
- 0.011 Added Version method
-       Fixed warning in NT.pm when -w in effect. Fix provided
-           by Judy Hawkins (of Pitney Bowes, according to her
-           mailing address), and accepted with thanks.
- 0.012 Hid attributes beginning with "_".
- 0.013 Use environment variable PERL_WIN32_PROCESS_INFO_VARIANT
-           to specify the default variant list.
-       Add a hash reference argument to new (); use this to
-           specify username and password to the WMI variant.
-       Turn on debug privilege in NT variant. This also resulted
-           in dependency on Win32API::Registry.
-       Return OwnerSid and Owner in NT variant.
- 0.014 Remove conditional dependencies from Makefile.PL
-       Track changes in Win32::API. Can no longer "require" it.
-       WMI variant no longer asserts debug privilege by default.
-       Use environment variable PERL_WIN32_PROCESS_INFO_WMI_DEBUG
-          to tell the WMI variant whether to assert debug.
-       Use environment variable PERL_WIN32_PROCESS_INFO_WMI_PARIAH
-          to encode processes to skip when determining the owner.
-       Add optional first hash ref argument to GetProcInfo.
-       Add Subprocesses method.
- 1.000 Add assert_debug_priv hash argument to the 'new' method.
-       Fix documentation, both pod errors and actual doc bugs.
-       When the only thing you've done in two months is add a
-           semicolon to a comment, it's probably time to call it
-           production code.
- 1.001 Removed dependency on Win32. We still need it, of course,
-       but PPM3 chokes on it, and I figure anyone who IS using
-       PPM3 already has it, and anyone who ISN'T is smart enough
-       to figure out what's going on - or at least read the Readme.
- 1.002 Document leaky behavior of WMI variant, and try to make it
-       leak less. Document related modules.
- 1.003 Documented PERL_WIN32_PROCESS_INFO_WMI_DEBUG correctly
-       (the docs had a _PRIV on the end).
-       Recorded the variant name in the object.
-       Clarified (hopefully) the docs on how to use the
-       PERL_WIN32_PROCESS_INFO_VARIANT environment variable.
-       Added the current status and whereabouts of
-       Win32::IProc. Thanks to Eric Bluestein
-       (http://www.emblue.com/) for pointing this out.
- 1.004 Remove commented-out dependencies in Makefile.PL,
-       since CPAN's now checking. The only one that really
-       counts is Win32, but ActiveState's PPM3 chokes on
-       this, or at least did as of January 2001.
- 1.005 Addressed token handle leak in the NT variant.
- 1.006 Silently skip non-existent processes in the
-       Subprocesses method. Fix provided by Kirk Baucom of
-       Itron, and accepted with thanks.
- 1.007 Provide method to disallow a given variant when the
-       package is loaded. This prevents the normal testing,
-       which causes problems if fork() is used. Thanks to Malcolm
-       Nooning for finding the problem, helping me work out
-       the solution, and sharing the results of his
-       correspondence with ActiveState.
- 1.008 Clean up the documentation. The new import()
-       documentation, in particular, contained a couple
-       abortive attempts to get it right. But the real
-       incentive is that the Windows build on ActiveState
-       failed because the Makefile was older than
-       Makefile.PL (?!?), so I thought I would try sending
-       it through again.
- 1.009 Fix synopsis code so that it compiles as-is.
-       Correct the error message generated when new() is
-       passed a reference other than a hash reference.
- 1.010 Replace 'elapsed_as_seconds' with 'elapsed_in_seconds'
-       in synopsis code. Also add 'grep' example. Thanks to David
-       Wagner and Derek Smith respectively for pointing out the
-       need for these.
-       Add and document variant 'PT'.
- 1.011 use warnings in all modules. This requires Perl 5.6.
-       Remove shebang lines in tests.
-       Explicit 'use 5.006' in Makefile.PL and Build.PL, since
-           'use warnings;' requires that.
-       Simplify t/pod.t.
-       Simplify t/pod_coverage.t, and mark all-uppercase methods
-           private.
-       Allow for ExtUtils::MakeMaker development version number
-           in Makefile.PL version check.
-       Skip process username test in t/basic.t if the username
-           cannot be determined.
- 1.012
-       Check for re-used parent process IDs in Subprocesses(),
-           and eliminate subprocesses created before their
-           parents.
-       Add SubProcInfo(), which calls GetProcInfo() and then
-           adds key {subProcesses} based on {ParentProcessId}.
- 1.013
-       Disable WMI under ReactOS (otherwise it dies horribly).
-       Have Subprocesses() skip processes with undefined creation
-           dates. Thanks to erikweidel for the bug report and
-	   the patch.
-       Make Perl::Critic compliant, with the perlcriticrc in the
-           t directory. Except for NT.pm and WMI.pm.
- 1.014
-       Missed change when replacing @_ with @args. Thanks to Erik
-           Weidel for spotting this. Why the test suite worked for
-	   me I haven't a clue.
-
 =head1 BUGS
 
 The WMI variant leaks memory - badly for 1.001 and earlier. After
@@ -1161,19 +921,21 @@ NT 4.0 without WMI.
 
 Thomas R. Wyant, III (F<wyant at cpan dot org>)
 
-=head1 COPYRIGHT
+=head1 COPYRIGHT AND LICENSE
 
-Copyright 2001, 2002, 2003, 2004, 2005 by E. I. DuPont de Nemours and
-Company, Inc.  All rights reserved.
+Copyright (C) 2001-2005 by E. I. DuPont de Nemours and Company, Inc. All
+rights reserved.
 
-Modifications since version 1.006 copyright 2007, 2008 and 2009 by
-Thomas R.  Wyant, III. All rights reserved.
+Copyright (C) 2007-2010 by Thomas R. Wyant, III
 
-=head1 LICENSE
+This program is free software; you can redistribute it and/or modify it
+under the same terms as Perl 5.10.0. For more details, see the full text
+of the licenses in the directory LICENSES.
 
-This module is free software; you can use it, redistribute it
-and/or modify it under the same terms as Perl itself. Please see
-L<http://perldoc.perl.org/index-licence.html> for the current licenses.
+This program is distributed in the hope that it will be useful, but
+without any warranty; without even the implied warranty of
+merchantability or fitness for a particular purpose.
 
 =cut
 
+# ex: set textwidth=72 :
