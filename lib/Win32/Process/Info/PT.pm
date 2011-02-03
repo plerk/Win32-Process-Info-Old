@@ -64,7 +64,7 @@ use strict;
 use warnings;
 
 use base qw{Win32::Process::Info};
-our $VERSION = '1.016';
+our $VERSION = '1.016_01';
 
 use Carp;
 use File::Basename;
@@ -270,7 +270,7 @@ Thomas R. Wyant, III (F<wyant at cpan dot org>)
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2007, 2009-2010 by Thomas R. Wyant, III
+Copyright (C) 2007, 2009-2011 by Thomas R. Wyant, III
 
 This program is free software; you can redistribute it and/or modify it
 under the same terms as Perl 5.10.0. For more details, see the full text

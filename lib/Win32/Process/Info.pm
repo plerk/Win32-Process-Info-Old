@@ -10,8 +10,10 @@ Win32::Process::Info - Provide process information for Windows 32 systems.
  @pids = $pi->ListPids ();	# Get all known PIDs
  @info = $pi->GetProcInfo ();	# Get the max
  %subs = $pi->Subprocesses ();	# Figure out subprocess relationships.
- @info = grep {$_->{Name} =~ m/perl/}
-    $pi->GetProcInfo ();        # All processes with 'perl' in name.
+ @info = grep {
+     defined $_->{Name} &&
+     $_->{Name} =~ m/perl/
+ } $pi->GetProcInfo ();        # All processes with 'perl' in name.
 
 =head1 NOTICE
 
@@ -68,7 +70,7 @@ use 5.006;
 use strict;
 use warnings;
 
-our $VERSION = '1.016';
+our $VERSION = '1.016_01';
 
 use Carp;
 use File::Spec;
@@ -99,68 +101,75 @@ our %static = (
 
 my %variant_support;
 BEGIN {
-%variant_support = (
-    NT => {
-	check_support => sub {
-		return "Your OS is not a member of the Windows NT family"
-		    unless Win32->can ('IsWinNT') && Win32::IsWinNT ();
-		return "I can not find Win32::API"
-		    unless require Win32::API;
-		my @path = split ';', $ENV{Path};
+    %variant_support = (
+	NT => {
+	    check_support => sub {
+		local $@;
+		eval {
+		    require Win32;
+		    Win32->can( 'IsWinNT' ) && Win32::IsWinNT();
+		} or return "$^O is not a member of the Windows NT family";
+		eval { require Win32::API; 1 }
+		    or return 'I can not find Win32::API';
+		my @path = File::Spec->path();
 DLL_LOOP:
 		foreach my $dll (qw{PSAPI.DLL ADVAPI32.DLL KERNEL32.DLL}) {
 		    foreach my $loc (@path) {
 			next DLL_LOOP if -e File::Spec->catfile ($loc, $dll);
-			}
-		    return "I can not find $dll";
 		    }
+		    return "I can not find $dll";
+		}
 		return 0;
-		},
-	make => sub {
+	    },
+	    make => sub {
 		require Win32::Process::Info::NT;
 		Win32::Process::Info::NT->new (@_);
-		},
-	unsupported => "Disallowed on load of @{[__PACKAGE__]}.",
+	    },
+	    unsupported => "Disallowed on load of @{[__PACKAGE__]}.",
 	},
-    PT => {
-	check_support => sub {
+	PT => {
+	    check_support => sub {
+		local $@;
 		return "Unable to load Proc::ProcessTable"
-		    unless eval {require Proc::ProcessTable};
+		    unless eval {require Proc::ProcessTable; 1};
 		return 0;
-		},
-	make => sub {
+	    },
+	    make => sub {
 		require Win32::Process::Info::PT;
 		Win32::Process::Info::PT->new (@_);
-		},
-	unsupported => "Disallowed on load of @{[__PACKAGE__]}.",
+	    },
+	    unsupported => "Disallowed on load of @{[__PACKAGE__]}.",
 	},
-    WMI => {
-	check_support => sub {
-		return "Unsupported under ReactOS"
-		    if _isReactOS();
-		return "Unable to load Win32::OLE"
-		    unless eval {require Win32::OLE};
+	WMI => {
+	    check_support => sub {
+		local $@;
+		_isReactOS()
+		    and return 'Unsupported under ReactOS';
+		eval {
+		    require Win32::OLE;
+		    1;
+		} or return 'Unable to load Win32::OLE';
+		my ( $wmi, $proc );
+		my $old_warn = Win32::OLE->Option( 'Warn' );
+		eval {
+		    Win32::OLE->Option( Warn => 0 );
+		    $wmi = Win32::OLE->GetObject(
+			'winmgmts:{impersonationLevel=impersonate,(Debug)}!//./root/cimv2'
+		    );
+		    $wmi and $proc = $wmi->Get( "Win32_Process='$$'" );
+		};
+		Win32::OLE->Option( Warn => $old_warn );
+		$wmi or return 'Unable to get WMI object';
+		$proc or return 'WMI broken: unable to get process object';
 		return 0;
-		},
-	make => sub {
+	    },
+	    make => sub {
 		require Win32::Process::Info::WMI;
 		Win32::Process::Info::WMI->new (@_);
-		},
-	unsupported => "Disallowed on load of @{[__PACKAGE__]}.",
+	    },
+	    unsupported => "Disallowed on load of @{[__PACKAGE__]}.",
 	},
     );
-}
-sub _check_variant {
-my ($variant) = @_;
-croak "Error - Variant '$variant' is unknown."
-    unless exists $variant_support{$variant};
-exists $variant_support{$variant}{unsupported} or croak <<eod;
-Error - Variant '$variant' support status is unknown. This can happen if
-        you 'use Win32::Process::Info ();'. Please do not do that.
-eod
-croak "Error - Variant '$variant' is unsupported on your configuration. $variant_support{$variant}{unsupported}"
-    if $variant_support{$variant}{unsupported};
-return 1;
 }
 
 our %mutator = (
@@ -168,9 +177,12 @@ our %mutator = (
     variant		=> sub {
 	ref $_[0]
 	    and eval { $_[0]->isa( 'Win32::Process::Info' ) }
-	    or croak 'Error - Variant can not be set on an instance';
+	    or croak 'Variant can not be set on an instance';
 	foreach (split '\W+', $_[2]) {
-	    _check_variant ($_);
+	    my $status;
+	    $status = variant_support_status( $_ )
+		and croak "Variant '$_' unsupported on your configuration; ",
+		    $status;
 	}
 	$_[2]
     },
@@ -235,47 +247,44 @@ variant in use does not support.
 
 my @argnam = qw{host variant};
 sub new {
-my ($class, @params) = @_;
-$class = ref $class if ref $class;
-my %arg;
-my ($self, @probs, $variant);
+    my ($class, @params) = @_;
+    $class = ref $class if ref $class;
+    my %arg;
+    my ( $self, @probs );
 
-my $inx = 0;
-foreach my $inp (@params) {
-    if (ref $inp eq 'HASH') {
-	foreach my $key (keys %$inp) {$arg{$key} = $inp->{$key}}
+    my $inx = 0;
+    foreach my $inp (@params) {
+	if (ref $inp eq 'HASH') {
+	    foreach my $key (keys %$inp) {$arg{$key} = $inp->{$key}}
+	} elsif (ref $inp) {
+	    croak "Argument may not be @{[ref $inp]} reference.";
+	} elsif ($argnam[$inx]) {
+	    $arg{$argnam[$inx]} = $inp;
+	} else {
+	    croak "Too many positional arguments.";
 	}
-      elsif (ref $inp) {
-	croak "Error - Argument may not be @{[ref $inp]} reference.";
-	}
-      elsif ($argnam[$inx]) {
-	$arg{$argnam[$inx]} = $inp;
-	}
-      else {
-	croak "Error - Too many positional arguments.";
-	}
-    $inx++;
+	$inx++;
     }
 
-_import_done()
-    or croak __PACKAGE__,
-	'->import() must be called before calling ', __PACKAGE__,
-	'->new()';
-my $mach = $arg{host} or delete $arg{host};
-my $try = $arg{variant} || $static{variant} || 'WMI,NT,PT';
-foreach my $variant (grep {$_} split '\W+', $try) {
-    eval {
-	_check_variant ($variant);
-	$self = $variant_support{$variant}{make}->(\%arg);
+    _import_done()
+	or croak __PACKAGE__,
+	    '->import() must be called before calling ', __PACKAGE__,
+	    '->new()';
+    my $mach = $arg{host} or delete $arg{host};
+    my $try = $arg{variant} || $static{variant} || 'WMI,NT,PT';
+    foreach my $variant (grep {$_} split '\W+', $try) {
+	my $status;
+	$status = variant_support_status( $variant ) and do {
+	    push @probs, $status;
+	    next;
 	};
-    if ($self) {
-	$static{variant} ||= $variant;
-	$self->{variant} = $variant;
+	my $self;
+	$self = $variant_support{$variant}{make}->( \%arg ) and do {
+	    $static{variant} ||= $self->{variant} = $variant;
+	};
 	return $self;
-	}
-    push @probs, $@;
     }
-croak @probs;
+    croak join '; ', @probs;
 }
 
 =item @values = $pi->Get (attributes ...)
@@ -430,21 +439,22 @@ sub GetProcInfo {
 =item Win32::Process::Info->import ()
 
 The purpose of this static method is to specify which variants of the
-functionality are legal to use. Possible arguments are 'NT', 'WMI', or
-both (i.e. ('NT', 'WMI')). Unrecognized arguments are ignored, though
-this may change if this class becomes a subclass of Exporter. If called
-with no arguments, it is as though it were called with arguments ('NT',
-'WMI'). See L</BUGS>, below, for why this mess was introduced in the
-first place.
+functionality are legal to use. Possible arguments are 'NT', 'WMI',
+'PT', or some combination of these (e.g. ('NT', 'WMI')). Unrecognized
+arguments are ignored, though this may change if this class becomes a
+subclass of Exporter. If called with no arguments, it is as though it
+were called with arguments ('NT', 'WMI', 'PT'). See L</BUGS>, below, for
+why this mess was introduced in the first place.
 
 This method must be called at least once, B<in a BEGIN block>, or B<no>
 variants will be legal to use. Usually it does B<not> need to be
 explicitly called by the user, since it is called implicitly when you
-'use Win32::Process::Info;'.
+C<use Win32::Process::Info;>. If you C<require Win32::Process::Info;>
+you B<will> have to call this method explicitly.
 
 If this method is called more than once, the second and subsequent calls
 will have no effect on what variants are available. The reason for this
-is will be made clear (I hope!) under L</USE IN OTHER MODULES>, below.
+will be made clear (I hope!) under L</USE IN OTHER MODULES>, below.
 
 The only time a user of this module needs to do anything different
 versus version 1.006 and previous of this module is if this module is
@@ -620,6 +630,29 @@ sub SubProcInfo {
     }
 }
 
+=item $text = Win32::Process::Info->variant_support_status($variant);
+
+This static method returns the support status of the given variant. The
+return is false if the variant is supported, or an appropriate message
+if the variant is unsupported.
+
+This method can also be called as a normal method, or even as a
+subroutine.
+
+=cut
+
+sub variant_support_status {
+    my @args = @_;
+    my $variant = pop @args or croak "Variant not specified";
+    exists $variant_support{$variant}
+	or croak "Variant '$variant' is unknown";
+    _import_done()
+	or croak __PACKAGE__,
+	    '->import() must be called before calling ', __PACKAGE__,
+	    '->variant_support_status()';
+    return $variant_support{$variant}{unsupported};
+}
+
 =item print "$pi Version = @{[$pi->Version ()]}\n"
 
 This method just returns the version number of the
@@ -629,19 +662,6 @@ Win32::Process::Info object.
 
 sub Version {
 return $Win32::Process::Info::VERSION;
-}
-
-#	$result = $self->_available (variant)
-#	is a debugging tool that returns the content of {unsupported}
-#	for the given variant. If the variant does not exist, you get
-#	undef.
-
-sub _available {
-    my $pkg = shift;
-    my $var = shift;
-    return $variant_support{$var} ?
-	$variant_support{$var}{unsupported} :
-	undef; 
 }
 
 #
@@ -828,10 +848,9 @@ load this module as
 The problem is that fork() and Win32::OLE (used by the WMI variant) do
 not play B<at all> nicely together. This appears to be an acknowledged
 problem with Win32::OLE, which is brought on simply by loading the
-module. See import() above for the consequences of handling things this
-way.
+module. See import() above for the gory details.
 
-The use of the NT and WMI variants under non-windows systems is
+The use of the NT and WMI variants under non-Microsoft systems is
 unsupported. ReactOS 0.3.3 is known to lock up when GetProcInfo() is
 called; since this  works on the Microsoft OSes, I am inclined to
 attribute this to the acknowledged alpha-ness of ReactOS. I have no idea
@@ -842,9 +861,13 @@ L<http://rt.cpan.org>.
 
 =head1 RESTRICTIONS
 
-You can not "require" this library except in a BEGIN block. This is a
-consequence of the use of Win32::API, which has the same restriction,
-at least in some versions.
+You can not C<require> this module except in a BEGIN block. This is a
+consequence of the use of Win32::API, which has the same restriction, at
+least in some versions.
+
+If you C<require> this module, you B<must> explicitly call C<<
+Win32::Process::Info->import() >>, so that the module will know what
+variants are available.
 
 If your code calls fork (), you must load this module as
 
@@ -926,7 +949,7 @@ Thomas R. Wyant, III (F<wyant at cpan dot org>)
 Copyright (C) 2001-2005 by E. I. DuPont de Nemours and Company, Inc. All
 rights reserved.
 
-Copyright (C) 2007-2010 by Thomas R. Wyant, III
+Copyright (C) 2007-2011 by Thomas R. Wyant, III
 
 This program is free software; you can redistribute it and/or modify it
 under the same terms as Perl 5.10.0. For more details, see the full text
