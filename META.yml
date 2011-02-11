@@ -16,17 +16,17 @@ no_index:
 provides:
   Win32::Process::Info:
     file: lib/Win32/Process/Info.pm
-    version: 1.016_01
+    version: 1.016_02
   Win32::Process::Info::NT:
     file: lib/Win32/Process/Info/NT.pm
-    version: 1.016_01
+    version: 1.016_02
   Win32::Process::Info::PT:
     file: lib/Win32/Process/Info/PT.pm
-    version: 1.016_01
+    version: 1.016_02
   Win32::Process::Info::WMI:
     file: lib/Win32/Process/Info/WMI.pm
-    version: 1.016_01
+    version: 1.016_02
 resources:
   bugtracker: https://rt.cpan.org/Public/Dist/Display.html?Name=Win32-Process-Info
   license: http://dev.perl.org/licenses/
-version: 1.016_01
+version: 1.016_02
