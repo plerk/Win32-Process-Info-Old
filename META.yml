@@ -2,7 +2,9 @@
 abstract: 'Get information on arbitrary processes in Windows NT'
 author:
   - 'Tom Wyant (wyant at cpan dot org)'
-generated_by: 'Module::Build version 0.3624'
+build_requires: {}
+dynamic_config: 1
+generated_by: 'Module::Build version 0.38, CPAN::Meta::Converter version 2.110930'
 license: perl
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
@@ -16,17 +18,17 @@ no_index:
 provides:
   Win32::Process::Info:
     file: lib/Win32/Process/Info.pm
-    version: 1.017
+    version: 1.018
   Win32::Process::Info::NT:
     file: lib/Win32/Process/Info/NT.pm
-    version: 1.017
+    version: 1.018
   Win32::Process::Info::PT:
     file: lib/Win32/Process/Info/PT.pm
-    version: 1.017
+    version: 1.018
   Win32::Process::Info::WMI:
     file: lib/Win32/Process/Info/WMI.pm
-    version: 1.017
+    version: 1.018
 resources:
   bugtracker: https://rt.cpan.org/Public/Dist/Display.html?Name=Win32-Process-Info
   license: http://dev.perl.org/licenses/
-version: 1.017
+version: 1.018

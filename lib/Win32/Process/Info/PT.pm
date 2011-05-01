@@ -64,7 +64,7 @@ use strict;
 use warnings;
 
 use base qw{Win32::Process::Info};
-our $VERSION = '1.017';
+our $VERSION = '1.018';
 
 use Carp;
 use File::Basename;
@@ -186,7 +186,7 @@ to be consistent with the other variants.
 	    $info->{Owner} = $pw_uid{$uid} ||= '\\' . getpwuid($uid);
 	},
     );
-    my @fld_sup = Proc::ProcessTable->new ()->fields ();
+    my @fld_sup = grep { defined $_ } Proc::ProcessTable->new ()->fields ();
 
     sub GetProcInfo {
 	my ($self, @args) = @_;
