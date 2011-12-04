@@ -70,7 +70,7 @@ use 5.006;
 use strict;
 use warnings;
 
-our $VERSION = '1.018';
+our $VERSION = '1.018_90';
 
 use Carp;
 use File::Spec;
@@ -514,7 +514,8 @@ passing any necessary arguments.
 
 
 {
-    my $is_reactos = $^O eq 'MSWin32' && lc $ENV{OS} eq 'reactos';
+    my $is_reactos = $^O eq 'MSWin32' &&
+	defined $ENV{OS} && lc $ENV{OS} eq 'reactos';
     sub _isReactOS {
 	return $is_reactos;
     }

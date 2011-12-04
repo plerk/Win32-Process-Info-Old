@@ -4,7 +4,7 @@
       "Tom Wyant (wyant at cpan dot org)"
    ],
    "dynamic_config" : 1,
-   "generated_by" : "Module::Build version 0.38, CPAN::Meta::Converter version 2.110930",
+   "generated_by" : "Module::Build version 0.38, CPAN::Meta::Converter version 2.112621",
    "license" : [
       "perl_5"
    ],
@@ -20,26 +20,42 @@
          "xt"
       ]
    },
-   "prereqs" : {},
+   "prereqs" : {
+      "build" : {
+         "requires" : {
+            "Test::More" : "0.88"
+         }
+      },
+      "runtime" : {
+         "requires" : {
+            "Carp" : 0,
+            "File::Spec" : 0,
+            "Time::Local" : 0,
+            "perl" : "5.006",
+            "strict" : 0,
+            "warnings" : 0
+         }
+      }
+   },
    "provides" : {
       "Win32::Process::Info" : {
          "file" : "lib/Win32/Process/Info.pm",
-         "version" : "1.018"
+         "version" : "1.018_90"
       },
       "Win32::Process::Info::NT" : {
          "file" : "lib/Win32/Process/Info/NT.pm",
-         "version" : "1.018"
+         "version" : "1.018_90"
       },
       "Win32::Process::Info::PT" : {
          "file" : "lib/Win32/Process/Info/PT.pm",
-         "version" : "1.018"
+         "version" : "1.018_90"
       },
       "Win32::Process::Info::WMI" : {
          "file" : "lib/Win32/Process/Info/WMI.pm",
-         "version" : "1.018"
+         "version" : "1.018_90"
       }
    },
-   "release_status" : "stable",
+   "release_status" : "testing",
    "resources" : {
       "bugtracker" : {
          "web" : "https://rt.cpan.org/Public/Dist/Display.html?Name=Win32-Process-Info"
@@ -48,5 +64,5 @@
          "http://dev.perl.org/licenses/"
       ]
    },
-   "version" : "1.018"
+   "version" : "1.018_90"
 }
