@@ -63,12 +63,14 @@ package Win32::Process::Info::PT;
 use strict;
 use warnings;
 
-use base qw{Win32::Process::Info};
-our $VERSION = '1.019';
+use base qw{ Win32::Process::Info };
+
+our $VERSION = '1.019_01';
 
 use Carp;
 use File::Basename;
 use Proc::ProcessTable;
+use Win32::Process::Info qw{ $MY_PID };
 
 # TODO figure out what we need to do here.
 
@@ -193,7 +195,9 @@ to be consistent with the other variants.
 	my $opt = ref $args[0] eq 'HASH' ? shift @args : {};
 	my $tbl = Proc::ProcessTable->new ()->table ();
 	if (@args) {
-	    my %filter = map {(($_ eq '.' ? $$ : $_), 1)} @args;
+	    my %filter = map {
+		($_ eq '.' ? $MY_PID : $_) => 1
+	    } @args;
 	    $tbl = [grep {$filter{$_->pid ()}} @$tbl];
 	}
 	my @pinf;
@@ -232,7 +236,9 @@ sub ListPids {
     my $tbl = Proc::ProcessTable->new ()->table ();
     my @pids;
     if (@args) {
-	my %filter = map {(($_ eq '.' ? $$ : $_), 1)} @args;
+	my %filter = map {
+	    ($_ eq '.' ? $MY_PID : $_) => 1
+	} @args;
 	@pids = grep {$filter{$_}} map {$_->pid} @$tbl;
     } else {
 	@pids = map {$_->pid} @$tbl;
@@ -270,7 +276,7 @@ Thomas R. Wyant, III (F<wyant at cpan dot org>)
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2007, 2009-2011 by Thomas R. Wyant, III
+Copyright (C) 2007, 2009-2011, 2013 by Thomas R. Wyant, III
 
 This program is free software; you can redistribute it and/or modify it
 under the same terms as Perl 5.10.0. For more details, see the full text

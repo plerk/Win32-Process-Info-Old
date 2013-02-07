@@ -35,8 +35,9 @@ package Win32::Process::Info::WMI;
 use strict;
 use warnings;
 
-use base qw{Win32::Process::Info};
-our $VERSION = '1.019';
+use base qw{ Win32::Process::Info };
+
+our $VERSION = '1.019_01';
 
 use vars qw{%mutator};
 use Carp;
@@ -44,6 +45,7 @@ use Time::Local;
 use Win32::OLE qw{in with};
 use Win32::OLE::Const;
 use Win32::OLE::Variant;
+use Win32::Process::Info qw{ $MY_PID };
 
 
 %mutator = %Win32::Procecss::Info::mutator;
@@ -210,7 +212,7 @@ sub _get_proc_objects {
 my $self = shift;
 my @procs = @_ ?
     map {
-	my $pi = $_ eq '.' ? $$ : $_;
+	my $pi = $_ eq '.' ? $MY_PID : $_;
 	my $obj = $self->{wmi}->Get ("Win32_Process='$pi'");
 	Win32::OLE->LastError ? () : ($obj)	
 	} @_ :
@@ -411,7 +413,7 @@ Thomas R. Wyant, III (F<wyant at cpan dot org>)
 
 Copyright (C) 2001-2005 by E. I. DuPont de Nemours and Company, Inc.
 
-Copyright (C) 2007, 2010-2011 by Thomas R. Wyant, III
+Copyright (C) 2007, 2010-2011, 2013 by Thomas R. Wyant, III
 
 This program is free software; you can redistribute it and/or modify it
 under the same terms as Perl 5.10.0. For more details, see the full text

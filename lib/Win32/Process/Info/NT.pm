@@ -73,9 +73,11 @@ sub Win32::Process::Info::DummyRoutine::Call {
 return undef;	## no critic (ProhibitExplicitReturnUndef)
 }
 
-use base qw{Win32::Process::Info};
+use base qw{ Win32::Process::Info };
 
-our $VERSION = '1.019';
+use Win32::Process::Info qw{ $MY_PID };
+
+our $VERSION = '1.019_01';
 
 our $AdjustTokenPrivileges;
 our $CloseHandle;
@@ -349,7 +351,7 @@ my @trydac = (
     PROCESS_QUERY_INFORMATION,
     );
 
-foreach my $pid (map {$_ eq '.' ? $$ : $_} @args) {
+foreach my $pid (map {$_ eq '.' ? $MY_PID : $_} @args) {
 
     local $^E = 0;
     $dat = $self->_build_hash (undef, ProcessId => $pid);
@@ -527,7 +529,9 @@ reference to the list is returned.
 sub ListPids {
 my ( $self, @args ) = @_;
 my $filter = undef;
-@args and $filter = {map {(($_ eq '.' ? $$ : $_), 1)} @args};
+@args and $filter = {
+    map { ($_ eq '.' ? $MY_PID : $_) => 1 } @args
+};
 $EnumProcesses ||= _map ('PSAPI', 'EnumProcesses', [qw{P N P}], 'I');
 my $psiz = 4;
 my $bsiz = 0;
@@ -694,7 +698,7 @@ Thomas R. Wyant, III (F<wyant at cpan dot org>)
 
 Copyright (C) 2001-2003 by E. I. DuPont de Nemours and Company, Inc.
 
-Copyright (C) 2007-2011 by Thomas R. Wyant, III
+Copyright (C) 2007-2011, 2013 by Thomas R. Wyant, III
 
 This program is free software; you can redistribute it and/or modify it
 under the same terms as Perl 5.10.0. For more details, see the full text
