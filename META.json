@@ -40,19 +40,19 @@
    "provides" : {
       "Win32::Process::Info" : {
          "file" : "lib/Win32/Process/Info.pm",
-         "version" : "1.019_01"
+         "version" : "1.019_02"
       },
       "Win32::Process::Info::NT" : {
          "file" : "lib/Win32/Process/Info/NT.pm",
-         "version" : "1.019_01"
+         "version" : "1.019_02"
       },
       "Win32::Process::Info::PT" : {
          "file" : "lib/Win32/Process/Info/PT.pm",
-         "version" : "1.019_01"
+         "version" : "1.019_02"
       },
       "Win32::Process::Info::WMI" : {
          "file" : "lib/Win32/Process/Info/WMI.pm",
-         "version" : "1.019_01"
+         "version" : "1.019_02"
       }
    },
    "release_status" : "testing",
@@ -64,5 +64,5 @@
          "http://dev.perl.org/licenses/"
       ]
    },
-   "version" : "1.019_01"
+   "version" : "1.019_02"
 }
