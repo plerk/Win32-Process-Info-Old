@@ -24,6 +24,8 @@ only be called via that package.
 This package implements the WMI-specific methods of
 Win32::Process::Info.
 
+This package returns Windows process IDs, even under Cygwin.
+
 The following methods should be considered public:
 
 =over 4
@@ -37,7 +39,7 @@ use warnings;
 
 use base qw{ Win32::Process::Info };
 
-our $VERSION = '1.019_02';
+our $VERSION = '1.019_03';
 
 use vars qw{%mutator};
 use Carp;
@@ -45,7 +47,6 @@ use Time::Local;
 use Win32::OLE qw{in with};
 use Win32::OLE::Const;
 use Win32::OLE::Variant;
-use Win32::Process::Info qw{ $MY_PID };
 
 
 %mutator = %Win32::Procecss::Info::mutator;
@@ -210,9 +211,10 @@ be present.
 
 sub _get_proc_objects {
 my $self = shift;
+my $my_pid = $self->My_Pid();
 my @procs = @_ ?
     map {
-	my $pi = $_ eq '.' ? $MY_PID : $_;
+	my $pi = $_ eq '.' ? $my_pid : $_;
 	my $obj = $self->{wmi}->Get ("Win32_Process='$pi'");
 	Win32::OLE->LastError ? () : ($obj)	
 	} @_ :

@@ -28,10 +28,14 @@ only be called via that package.
 
 =head1 DESCRIPTION
 
-The main purpose of the Win32::Process::Info package is to get whatever
-information is convenient (for the author!) about one or more
+The main purpose of the Win32::Process::Info::PT package is to get
+whatever information is convenient (for the author!) about one or more
 processes. GetProcInfo (which see) is therefore the most-important
 method in the package. See it for more information.
+
+This package returns whatever process IDs are made available by
+Proc::ProcessTable. Under Cygwin, this seems to mean Cygwin process IDs,
+not Windows process IDs.
 
 Unless explicitly stated otherwise, modules, variables, and so
 on are considered private. That is, the author reserves the right
@@ -65,12 +69,11 @@ use warnings;
 
 use base qw{ Win32::Process::Info };
 
-our $VERSION = '1.019_02';
+our $VERSION = '1.019_03';
 
 use Carp;
 use File::Basename;
 use Proc::ProcessTable;
-use Win32::Process::Info qw{ $MY_PID };
 
 # TODO figure out what we need to do here.
 
@@ -192,11 +195,14 @@ to be consistent with the other variants.
 
     sub GetProcInfo {
 	my ($self, @args) = @_;
+
+	my $my_pid = $self->My_Pid();
 	my $opt = ref $args[0] eq 'HASH' ? shift @args : {};
 	my $tbl = Proc::ProcessTable->new ()->table ();
+
 	if (@args) {
 	    my %filter = map {
-		($_ eq '.' ? $MY_PID : $_) => 1
+		($_ eq '.' ? $my_pid : $_) => 1
 	    } @args;
 	    $tbl = [grep {$filter{$_->pid ()}} @$tbl];
 	}
@@ -233,17 +239,24 @@ reference to the list is returned.
 
 sub ListPids {
     my ($self, @args) = @_;
+
     my $tbl = Proc::ProcessTable->new ()->table ();
+    my $my_pid = $self->My_Pid();
     my @pids;
+
     if (@args) {
 	my %filter = map {
-	    ($_ eq '.' ? $MY_PID : $_) => 1
+	    ($_ eq '.' ? $my_pid : $_) => 1
 	} @args;
 	@pids = grep {$filter{$_}} map {$_->pid} @$tbl;
     } else {
 	@pids = map {$_->pid} @$tbl;
     }
     return wantarray ? @pids : \@pids;
+}
+
+sub My_Pid {
+    return $$;
 }
 
 =back
