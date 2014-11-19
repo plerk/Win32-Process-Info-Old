@@ -4,7 +4,7 @@
       "Tom Wyant (wyant at cpan dot org)"
    ],
    "dynamic_config" : 1,
-   "generated_by" : "Module::Build version 0.4003, CPAN::Meta::Converter version 2.120921",
+   "generated_by" : "Module::Build version 0.421",
    "license" : [
       "perl_5"
    ],
@@ -40,22 +40,22 @@
    "provides" : {
       "Win32::Process::Info" : {
          "file" : "lib/Win32/Process/Info.pm",
-         "version" : "1.020"
+         "version" : "1.020_01"
       },
       "Win32::Process::Info::NT" : {
          "file" : "lib/Win32/Process/Info/NT.pm",
-         "version" : "1.020"
+         "version" : "1.020_01"
       },
       "Win32::Process::Info::PT" : {
          "file" : "lib/Win32/Process/Info/PT.pm",
-         "version" : "1.020"
+         "version" : "1.020_01"
       },
       "Win32::Process::Info::WMI" : {
          "file" : "lib/Win32/Process/Info/WMI.pm",
-         "version" : "1.020"
+         "version" : "1.020_01"
       }
    },
-   "release_status" : "stable",
+   "release_status" : "testing",
    "resources" : {
       "bugtracker" : {
          "web" : "https://rt.cpan.org/Public/Dist/Display.html?Name=Win32-Process-Info"
@@ -64,5 +64,5 @@
          "http://dev.perl.org/licenses/"
       ]
    },
-   "version" : "1.020"
+   "version" : "1.020_01"
 }
