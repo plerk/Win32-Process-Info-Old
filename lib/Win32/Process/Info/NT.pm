@@ -378,7 +378,7 @@ foreach my $pid (map {$_ eq '.' ? $my_pid : $_} @args) {
 	}
 
     my ($minws, $maxws);
-    $minws = $maxws = '    ';
+    $minws = $maxws = '        ';
     if ($GetProcessWorkingSetSize->Call ($prchdl, $minws, $maxws)) {
 	$self->_build_hash ($dat,
 		MinimumWorkingSetSize	=> unpack ('L', $minws),
